@@ -1,0 +1,30 @@
+BeamNG.cad host-linking exception
+Additional permission under GNU GPL version 3 section 7
+
+Copyright (C) 2026 mcneds and BeamNG.cad contributors
+
+For original BeamNG.cad software licensed under GPL-3.0-or-later by its
+copyright holders (the Covered Code), those copyright holders grant you
+additional permission to link or combine the Covered Code with SOLIDWORKS
+and BeamNG.drive, including official API, COM/interop and runtime libraries
+provided as part of those products (the Host Software), and to convey the
+resulting combination.
+
+You must comply with the GNU General Public License for the Covered Code,
+including its requirements to provide Corresponding Source. You are not
+required by this additional permission to provide the source code of the
+Host Software. The Host Software remains subject to its own license terms;
+this permission grants no right to copy, modify or redistribute it.
+
+This permission applies only to the Covered Code. It does not apply to
+CGAL, its Python bindings, or any other third-party software, and does not
+waive any obligations imposed by their copyright holders. It does not
+license CAD models, meshes, documentation prose, images or other excluded
+non-software materials. See README.md for the project license scope and
+THIRD-PARTY-NOTICES.md for dependency notices.
+
+If you modify the Covered Code, you may extend this additional permission
+to your modifications, but you are not required to do so. You may remove
+this additional permission when conveying a copy, as permitted by GNU GPL
+version 3 section 7. Preserve this notice in copies to which the permission
+continues to apply.

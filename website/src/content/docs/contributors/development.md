@@ -7,6 +7,14 @@ sidebar:
 
 The application is a Windows SolidWorks add-in with external Python workers. The documentation is an independent static website.
 
+## Software license
+
+Original BeamNG.cad software uses **GPL-3.0-or-later** with a scoped exception allowing integration with SOLIDWORKS and BeamNG.drive. Distributed modifications must comply with the GPL, including its source requirements. The exception applies only to original project software; external dependencies retain their own terms.
+
+This grant covers software, including documentation-site code, but excludes documentation prose, the Mochi team's model and derived meshes, vehicle/calibration datasets, screenshots, renders and other non-software assets unless separately licensed. Generated geometry does not automatically become GPL; copied runtime software in a generated vehicle package retains its license and applicable host exception.
+
+Read the [license scope in the repository](https://github.com/mcneds/BeamNG.cad#license), the [GNU GPL text](https://github.com/mcneds/BeamNG.cad/blob/main/LICENSE), the [host-linking exception](https://github.com/mcneds/BeamNG.cad/blob/main/LICENSE-EXCEPTION.txt), and the [third-party notices](https://github.com/mcneds/BeamNG.cad/blob/main/THIRD-PARTY-NOTICES.md) before redistributing software or assets.
+
 ## Application layout
 
 | Area | Responsibility |
@@ -40,4 +48,3 @@ Native references and assembly-space capture belong to the CAD thread. Python wo
 Preserve sealed calibration and package provenance. Changes to physical inputs need fresh generations; appearance revisions must leave the full physical snapshot unchanged.
 
 Use [Testing](/contributors/testing/) to choose checks that match the changed subsystem. Updating website prose alone does not require launching SolidWorks or the game.
-

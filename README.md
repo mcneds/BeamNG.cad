@@ -2,6 +2,18 @@
 
 SolidWorks COM add-in for turning selected CAD groups into BeamNG structures and vehicle packages. CAD ownership, physical graphs and appearance meshes are kept separate.
 
+## License
+
+Copyright (C) 2026 mcneds and BeamNG.cad contributors.
+
+Original BeamNG.cad software is licensed under **GPL-3.0-or-later**, with the [BeamNG.cad host-linking exception](LICENSE-EXCEPTION.txt) for SOLIDWORKS and BeamNG.drive. You may redistribute and modify the software under GNU GPL version 3 or, at your option, any later version. See the complete [GNU GPLv3 text](LICENSE) and [third-party notices](THIRD-PARTY-NOTICES.md). The software is provided without warranty as described in the GPL.
+
+This grant covers the original software implementation, including C#, Python, Lua and PowerShell source, documentation-site code, software configuration, build tooling and project-authored calibration/wizard code. Existing third-party licenses remain authoritative; the host exception applies only to original BeamNG.cad code.
+
+**Software only:** CAD models, meshes, vehicle/calibration datasets, screenshots, renders, other non-software assets and documentation prose are excluded from this grant unless separately licensed by their rights holder. The Mochi team retains its separate rights to the model and derived materials. Their inclusion in this repository or documentation does not grant additional reuse permissions.
+
+Generated vehicle geometry does not automatically become GPL because this software produced it. Copied project software included in a generated package, such as Lua runtime controllers, remains GPL with the applicable host exception; retain those notices and comply with the software license when redistributing it.
+
 ## Documentation
 
 Read the handbook at **[beamng-cad.mcneds.dev](https://beamng-cad.mcneds.dev)**. Source: [mcneds/BeamNG.cad](https://github.com/mcneds/BeamNG.cad).
