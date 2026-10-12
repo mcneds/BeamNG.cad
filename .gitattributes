@@ -1,0 +1,13 @@
+# Calibration receipts and documentation provenance fingerprint file bytes.
+# Preserve those bytes across Windows/Linux checkouts; do not apply autocrlf.
+# This disables newline conversion, not ordinary text diffs.
+* -text
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff2 binary
+*.pdf binary

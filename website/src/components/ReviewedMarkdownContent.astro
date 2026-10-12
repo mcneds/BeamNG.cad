@@ -1,0 +1,10 @@
+---
+import DefaultMarkdownContent from '@astrojs/starlight/components/MarkdownContent.astro';
+import registry from '../data/doc-evidence.json';
+import { groupFor } from '../../scripts/doc-evidence.mjs';
+const group=groupFor(Astro.locals.starlightRoute.entry.id) as keyof typeof registry.groups;
+---
+<!-- The page scope also covers code blocks rewritten by syntax-highlighting plugins. -->
+<div data-doc-evidence={group} data-reviewed={registry.groups[group]?.reviewed}>
+  <DefaultMarkdownContent><slot /></DefaultMarkdownContent>
+</div>

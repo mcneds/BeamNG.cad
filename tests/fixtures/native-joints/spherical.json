@@ -1,0 +1,70 @@
+{
+  "expected_kind": "spherical",
+  "native_snapshot_sha256": "d29468f51618c00ffd0b1ae80d30c06308a69d02f151a46bdf45b135ce10dcad",
+  "source": "Owned SolidWorks Test-NativeJoints.ps1 fixture, 2026-10-08; persistent references hashed",
+  "workspace": {
+    "Bindings": [],
+    "Joints": [],
+    "Mates": [
+      {
+        "Entities": [
+          {
+            "Axis": [
+              1,
+              0,
+              0
+            ],
+            "ComponentId": "owner0",
+            "ComponentReference": "eb0609909799b2569aa77b55434ab69285f761084d65b3ffee6cb79a02174910",
+            "Kind": "point",
+            "MemberId": null,
+            "Point": [
+              0.1,
+              0.04,
+              0.05
+            ],
+            "Radius": 0,
+            "Reference": "5ba63feaab3deb69f490c1dd1ac469114315fbf1726c332c3d96b53b39eeec69"
+          },
+          {
+            "Axis": [
+              1,
+              0,
+              0
+            ],
+            "ComponentId": "owner1",
+            "ComponentReference": "a30d84830a4d0943d10132fea645afd9d97b058a5e5d91baf2c99f8241c62229",
+            "Kind": "point",
+            "MemberId": null,
+            "Point": [
+              0.1,
+              0.04,
+              0.05
+            ],
+            "Radius": 0,
+            "Reference": "b805bdc13c029cf8d71cb58fccbcea73aacbb227867dcee5dea70ae7f300597b"
+          }
+        ],
+        "HasLimits": false,
+        "Id": "698f4ff53cd191456d1faa56ed8f11809735c4570e864eaf807e1efe14bdf4cb",
+        "Issue": null,
+        "LockRotation": false,
+        "Maximum": 0,
+        "Minimum": 0,
+        "Name": "Coincident1",
+        "PositioningOnly": false,
+        "Reference": "249c026d7d4b7835c726e299cb5e75eb0259166eedd5e8274c9096a66bfaddd2",
+        "Suppressed": false,
+        "Type": "COINCIDENT",
+        "Value": 0
+      }
+    ],
+    "Members": [],
+    "Mode": "legacy",
+    "Parameters": [],
+    "ScanConfiguration": null,
+    "ScanDocument": null,
+    "ScanHash": null,
+    "ScanStamp": 107
+  }
+}

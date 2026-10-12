@@ -1,0 +1,10 @@
+---
+import './explainers.css';
+interface Props { title: string; kind: string; }
+const { title, kind } = Astro.props;
+---
+<figure class="explainer" aria-label={title} data-doc-evidence={kind.startsWith('Recorded')?'verification':'vehicle-generation'}>
+  <header class="explainer-heading"><span class="explainer-kind">{kind}</span><p class="explainer-title">{title}</p></header>
+  <slot />
+  <figcaption><slot name="caption" /></figcaption>
+</figure>

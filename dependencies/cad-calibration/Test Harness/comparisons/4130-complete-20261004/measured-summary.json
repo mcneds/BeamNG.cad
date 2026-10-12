@@ -1,0 +1,138 @@
+{
+  "status": "completed_with_limitations",
+  "recordings": 39,
+  "completed": 39,
+  "mesh_load_errors": 0,
+  "cases": {
+    "4130-annealed": {
+      "mass_kg": 34.78915756010397,
+      "acceptance": {
+        "accepted": false,
+        "reasons": [
+          "Rendered mesh review failed"
+        ],
+        "checks": {
+          "idle_three_repeats": true,
+          "flex_three_repeats": true,
+          "torsion_three_repeats": true,
+          "flex_first_yield_external_force_n_repeat_range_relative": 4.1829335984400135e-05,
+          "flex_first_break_external_force_n_repeat_range_relative": 6.01775233637817e-05,
+          "torsion_first_yield_external_force_n_repeat_range_relative": 4.221843785206399e-05,
+          "torsion_first_break_external_force_n_repeat_range_relative": 3.559014367334965e-05
+        },
+        "rate_relative_changes": {
+          "flex_first_yield_external_force_n": 4.183669979740401e-05,
+          "flex_first_break_external_force_n": 0.00012036438487639245,
+          "torsion_first_yield_external_force_n": 0.00016888414918625472,
+          "torsion_first_break_external_force_n": 3.5597750045690546e-05
+        },
+        "mesh_review_current": true,
+        "mesh_review_notes": "FAILED visual separation. Inspected final-front.png for 20261004T125555-mesh-cut-597f9b (35% plane) and final-oblique.png for 20261004T125634-mesh-cut-3fb88f (65% plane), after the corrected spawn datum and outward separating load. Both graph cuts produce two disconnected components, but long, visibly stretched strips still bridge the gap, particularly the diagonal tubes in the 65% oblique view. Enabling mesh breaking on all 201 existing shell edges shared by actual CAD locator groups did not eliminate this defect. All 105 CAD meshes load without engine flexbody errors. Natural progressive-load views showed no gross mesh loss; their first failed edges are internal numerical supports with mesh breaking intentionally disabled, and they did not separate the graph. The two condition cases have identical geometry, node groups and mesh-breaking flags, so the failed controlled-cut association evidence applies to both. This is a limitation of the tested binding, not proof that every possible binding on this graph must fail. Neither candidate is qualified for realistic visual fracture or physical ductile rupture. Original and superseded recordings remain archived.",
+        "qualification_scope": "Stated equivalent-model tests; unknown heat treatment and ductile rupture remain unvalidated"
+      },
+      "responses": {
+        "flex": {
+          "elastic_deflection_mean_mm": 0.2657495754999912,
+          "elastic_relative_error": -0.000212121577334079,
+          "reference_yield_n": 2995.6052275801403,
+          "first_yield_mean_n": 3014.7800970854664,
+          "yield_relative_error": 0.0064010001480787615,
+          "first_break_mean_n": 4191.141228519499,
+          "yield_repeat_range_relative": 4.1829335984400135e-05,
+          "break_repeat_range_relative": 6.01775233637817e-05,
+          "yield_rate_relative_change": 4.183669979740401e-05,
+          "break_rate_relative_change": 0.00012036438487639245,
+          "first_break_nodes": [
+            "sh0058",
+            "sp01r"
+          ],
+          "first_break_mesh_breaking": false,
+          "structural_separation_observed": false
+        },
+        "torsion": {
+          "elastic_deflection_mean_mm": 0.12024865916669218,
+          "elastic_relative_error": -0.00048272679201277757,
+          "reference_yield_n": 4599.910329934767,
+          "first_yield_mean_n": 4586.688389053234,
+          "yield_relative_error": -0.0028743910061658218,
+          "first_break_mean_n": 5440.911410118134,
+          "yield_repeat_range_relative": 4.221843785206399e-05,
+          "break_repeat_range_relative": 3.559014367334965e-05,
+          "yield_rate_relative_change": 0.00016888414918625472,
+          "break_rate_relative_change": 3.5597750045690546e-05,
+          "first_break_nodes": [
+            "sh0008",
+            "sp01l"
+          ],
+          "first_break_mesh_breaking": false,
+          "structural_separation_observed": false
+        }
+      }
+    },
+    "4130-normalized": {
+      "mass_kg": 34.78915756010397,
+      "acceptance": {
+        "accepted": false,
+        "reasons": [
+          "Rendered mesh review failed"
+        ],
+        "checks": {
+          "idle_three_repeats": true,
+          "flex_three_repeats": true,
+          "torsion_three_repeats": true,
+          "flex_first_yield_external_force_n_repeat_range_relative": 4.119690716952349e-05,
+          "flex_first_break_external_force_n_repeat_range_relative": 2.9958357716748275e-05,
+          "torsion_first_yield_external_force_n_repeat_range_relative": 0.0,
+          "torsion_first_break_external_force_n_repeat_range_relative": 0.0
+        },
+        "rate_relative_changes": {
+          "flex_first_yield_external_force_n": 8.240050976926483e-05,
+          "flex_first_break_external_force_n": 8.988256007902429e-05,
+          "torsion_first_yield_external_force_n": 0.00016663292336449587,
+          "torsion_first_break_external_force_n": 7.088850213565756e-05
+        },
+        "mesh_review_current": true,
+        "mesh_review_notes": "FAILED visual separation. Inspected final-front.png for 20261004T125555-mesh-cut-597f9b (35% plane) and final-oblique.png for 20261004T125634-mesh-cut-3fb88f (65% plane), after the corrected spawn datum and outward separating load. Both graph cuts produce two disconnected components, but long, visibly stretched strips still bridge the gap, particularly the diagonal tubes in the 65% oblique view. Enabling mesh breaking on all 201 existing shell edges shared by actual CAD locator groups did not eliminate this defect. All 105 CAD meshes load without engine flexbody errors. Natural progressive-load views showed no gross mesh loss; their first failed edges are internal numerical supports with mesh breaking intentionally disabled, and they did not separate the graph. The two condition cases have identical geometry, node groups and mesh-breaking flags, so the failed controlled-cut association evidence applies to both. This is a limitation of the tested binding, not proof that every possible binding on this graph must fail. Neither candidate is qualified for realistic visual fracture or physical ductile rupture. Original and superseded recordings remain archived.",
+        "qualification_scope": "Stated equivalent-model tests; unknown heat treatment and ductile rupture remain unvalidated"
+      },
+      "responses": {
+        "flex": {
+          "elastic_deflection_mean_mm": 0.26575265783332586,
+          "elastic_relative_error": -0.00020052539886616927,
+          "reference_yield_n": 3625.2970641041966,
+          "first_yield_mean_n": 3652.520352577833,
+          "yield_relative_error": 0.007509257308369932,
+          "first_break_mean_n": 5022.723318902833,
+          "yield_repeat_range_relative": 4.119690716952349e-05,
+          "break_repeat_range_relative": 2.9958357716748275e-05,
+          "yield_rate_relative_change": 8.240050976926483e-05,
+          "break_rate_relative_change": 8.988256007902429e-05,
+          "first_break_nodes": [
+            "sh0058",
+            "sp01r"
+          ],
+          "first_break_mesh_breaking": false,
+          "structural_separation_observed": false
+        },
+        "torsion": {
+          "elastic_deflection_mean_mm": 0.12025606650000469,
+          "elastic_relative_error": -0.0004211563957557951,
+          "reference_yield_n": 5566.83546307136,
+          "first_yield_mean_n": 5546.791588589699,
+          "yield_relative_error": -0.0036005868351284276,
+          "first_break_mean_n": 6519.548082930701,
+          "yield_repeat_range_relative": 0.0,
+          "break_repeat_range_relative": 0.0,
+          "yield_rate_relative_change": 0.00016663292336449587,
+          "break_rate_relative_change": 7.088850213565756e-05,
+          "first_break_nodes": [
+            "sh0008",
+            "sp01l"
+          ],
+          "first_break_mesh_breaking": false,
+          "structural_separation_observed": false
+        }
+      }
+    }
+  }
+}

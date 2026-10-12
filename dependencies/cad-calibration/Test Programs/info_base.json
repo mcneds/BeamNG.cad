@@ -1,0 +1,12 @@
+{
+  "Config Type": "Custom",
+  "Configuration": "Generated Frame",
+  "Description": "Base configuration using the generated material-tuned deformable frame.",
+  "Population": 0,
+  "Value": 15000,
+  "Years": {
+    "min": 2026,
+    "max": 2026
+  },
+  "defaultPaintName1": "Frame Black"
+}

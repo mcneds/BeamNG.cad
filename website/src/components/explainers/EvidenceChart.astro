@@ -1,0 +1,59 @@
+---
+import Explainer from './Explainer.astro';
+import evidence from '../../data/checkpoint.json';
+const max=3.2, x=(value:number)=>205+value/max*380;
+---
+<Explainer title="A completed pilot can still fail acceptance" kind="Recorded output · 9 October 2026">
+  <cad-evidence-demo data-measurements={JSON.stringify(evidence)}>
+    <div class="demo-controls" role="group" aria-label="Recorded metric">
+      <button type="button" data-metric="drift" aria-pressed="true" disabled>Lateral drift</button>
+      <button type="button" data-metric="broken" aria-pressed="false" disabled>Broken beams</button>
+    </div>
+    <svg class="demo-svg" viewBox="0 0 640 270" role="img" aria-label="Two historical acceleration fixtures exceed the 0.5 metre drift limit despite zero broken beams">
+      <text data-unit x="205" y="25">Peak lateral drift (m)</text>
+      <path class="axis" d="M205 45V220H600"/>
+      <g data-limit><path d={`M${x(evidence.lateralLimitM)} 55V220`} stroke="var(--demo-orange)" stroke-width="2" stroke-dasharray="5 4"/><text x={x(evidence.lateralLimitM)+7} y="57" class="small">0.5 m limit</text></g>
+      {evidence.cases.map((item,i)=><g>
+        <text x="190" y={101+i*83} text-anchor="end">{i===0?'Trailing arm':'Rear wishbone'}</text>
+        <text x="190" y={121+i*83} text-anchor="end" class="small">{i===0?'Geared AWD':'RWD'}</text>
+        <rect data-bar={i} x="205" y={82+i*83} width={x(item.lateralDriftM)-205} height="34" rx="4" fill="var(--demo-blue)"/>
+        <text data-value={i} x={x(item.lateralDriftM)+9} y={105+i*83}>{item.lateralDriftM.toFixed(3)}</text>
+        <circle data-zero={i} cx="205" cy={99+i*83} r="5" fill="var(--demo-blue)" visibility="hidden"/>
+      </g>)}
+      <text x="205" y="244" text-anchor="middle">0</text><text data-mid-tick x="395" y="244" text-anchor="middle">1.6</text><text data-max-tick x="585" y="244" text-anchor="middle">3.2</text>
+    </svg>
+    <p class="demo-status" aria-live="polite" data-conclusion>Both fixtures exceeded the 0.5 m lateral-drift limit. Each suite stopped after 4 of 24 planned recordings; both remained unqualified.</p>
+    <details>
+      <summary>Exact measurements and source provenance</summary>
+      <table class="demo-evidence-table"><thead><tr><th>Fixture</th><th>Drift (m)</th><th>Broken beams</th><th>Applied steering</th></tr></thead><tbody>{evidence.cases.map(item=><tr><th>{item.label}</th><td>{item.lateralDriftM.toFixed(6)}</td><td>{item.brokenBeams}</td><td>{item.appliedSteering}</td></tr>)}</tbody></table>
+      <p class="demo-note">Local source: <code>{evidence.source}</code>. SHA-256: <code style="overflow-wrap:anywhere">{evidence.sourceSha256}</code>. The 0.5 m limit is recorded in <code>{evidence.limitSource}</code>. Only selected summary fields are bundled with this chart.</p>
+    </details>
+    <noscript>The measured drift graph and source table remain available. Enable JavaScript to switch metrics.</noscript>
+  </cad-evidence-demo>
+  <span slot="caption">These are retained synthetic-fixture measurements, not the current vehicle's result. Switch to broken beams to see why one passing metric cannot establish acceptance. Bars summarize recorded peaks; they are not reconstructed time-series traces. See the <a href="/milestones/mvp-checkpoint/">dated checkpoint</a>.</span>
+</Explainer>
+<script>
+  class CadEvidenceDemo extends HTMLElement {
+    private events?:AbortController;
+    connectedCallback(){
+      this.events?.abort();this.events=new AbortController();
+      const data=JSON.parse(this.dataset.measurements!) as {cases:{lateralDriftM:number;brokenBeams:number}[]};
+      const buttons=this.querySelectorAll<HTMLButtonElement>('[data-metric]');
+      buttons.forEach(button=>{button.disabled=false;button.addEventListener('click',()=>{
+        const drift=button.dataset.metric==='drift',max=drift?3.2:1;
+        buttons.forEach(b=>b.setAttribute('aria-pressed',String(b===button)));
+        this.querySelector('[data-limit]')!.setAttribute('visibility',drift?'visible':'hidden');
+        this.querySelector('[data-unit]')!.textContent=drift?'Peak lateral drift (m)':'Broken beams (count)';
+        this.querySelector('[data-mid-tick]')!.textContent=drift?'1.6':'';this.querySelector('[data-max-tick]')!.textContent=String(max);
+        data.cases.forEach((item,i)=>{const value=drift?item.lateralDriftM:item.brokenBeams,width=value/max*380;
+          this.querySelector(`[data-bar="${i}"]`)!.setAttribute('width',String(width));
+          const label=this.querySelector(`[data-value="${i}"]`)!;label.setAttribute('x',String(214+width));label.textContent=drift?value.toFixed(3):String(value);
+          this.querySelector(`[data-zero="${i}"]`)!.setAttribute('visibility',value===0?'visible':'hidden');
+        });
+        this.querySelector('[data-conclusion]')!.textContent=drift?'Both fixtures exceeded the 0.5 m lateral-drift limit. Each suite stopped after 4 of 24 planned recordings; both remained unqualified.':'Both recordings had zero broken beams and zero applied steering. They still failed on lateral drift. This passing damage metric does not change either qualification result.';
+      },{signal:this.events!.signal});});
+    }
+    disconnectedCallback(){this.events?.abort();}
+  }
+  if(!customElements.get('cad-evidence-demo'))customElements.define('cad-evidence-demo',CadEvidenceDemo);
+</script>

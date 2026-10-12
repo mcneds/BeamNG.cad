@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <RootNamespace>BeamNG.Cad</RootNamespace>
+    <AssemblyName>beamng.cad</AssemblyName>
+
+    <!-- allow "using var", etc -->
+    <LangVersion>8.0</LangVersion>
+    <!-- SOLIDWORKS hosts this library; dependencies must ship beside it. -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
+    <Reference Include="System.Web.Extensions" />
+    <PackageReference Include="Xarial.XCad.SolidWorks" Version="0.8.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="FramePipeline\**\*.py" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="FramePipeline\template_catalog.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="FramePipeline\reference\*.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\dependencies\cad-calibration\Test Harness\frame_harness\**\*" Exclude="..\dependencies\cad-calibration\Test Harness\frame_harness\**\__pycache__\**">
+      <Link>FramePipeline\calibration\Test Harness\frame_harness\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\dependencies\cad-calibration\Test Harness\examples\4130-reference.json">
+      <Link>FramePipeline\calibration\Test Harness\examples\4130-reference.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\dependencies\cad-calibration\Vehicle Wizard\vehicle_wizard\**\*.py" Exclude="..\dependencies\cad-calibration\Vehicle Wizard\vehicle_wizard\**\__pycache__\**">
+      <Link>FramePipeline\calibration\Vehicle Wizard\vehicle_wizard\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <!-- Retain the original designer files on disk, but use raw PNG resources.
+         This avoids serialized resource-reader binding in the native SW host. -->
+    <Compile Remove="Properties\Resources.Designer.cs" />
+    <EmbeddedResource Remove="Properties\Resources.resx" />
+    <EmbeddedResource Include="Resources\*.png">
+      <LogicalName>BeamNG.Cad.Resources.%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <Target Name="RemoveRetiredFrameStages" AfterTargets="Build">
+    <ItemGroup>
+      <RetiredFrameStage Include="$(TargetDir)FramePipeline\legacy\*.py" />
+      <RetiredFrameStage Include="$(TargetDir)FramePipeline\calibration\Test Harness\frame_harness\study.py" />
+    </ItemGroup>
+    <Delete Files="@(RetiredFrameStage)" />
+  </Target>
+</Project>

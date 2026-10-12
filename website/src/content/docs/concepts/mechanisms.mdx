@@ -1,0 +1,40 @@
+---
+title: "Mechanisms and numerical rigidity"
+description: "Mechanisms and numerical rigidity — beamng.cad documentation."
+sidebar:
+  order: 6
+---
+
+A suspension template is an explicit linkage, with CAD hardpoints and reviewed joint freedoms. It is not inferred from the appearance mesh.
+
+## Ideal linkage
+
+The kinematics solver uses nonlinear least squares to satisfy rigid linkage constraints. Jacobian rank checks whether the supported assembly has one suspension motion. Travel sweeps compute reachable positions, toe, camber and shock motion ratio.
+
+Two chassis pivots define a wishbone's hinge axis. Shared ball centres locate the upright while allowing the intended relative rotation. Radius rods and toe links constrain endpoint distances without adding a moment constraint.
+
+A one-degree-of-freedom result is necessary but does not establish adequate leverage or stiffness. Nearly singular locating geometry can produce large alignment changes under small strains.
+
+## Generated constraints and mass
+
+The generator uses normal beams and, where needed, four-node torsion bars to resist deformation while leaving whole-body motion free. Shared pivots accumulate each owner's mass contribution exactly once.
+
+Current default wishbones and trailing arms use `hardpoint_lumped` representation: actual mechanical hardpoints, plus any real shock, carrier or link attachment sites. An upper wishbone can therefore use three nodes. Existing hinge edges are reused. The report records mass, COM/inertia approximation errors, node count and any numerical support mass separately.
+
+The optional `cad_moments` representation retains auxiliary moment nodes and an exact-moment fitting approach for comparisons. Uprights default to `cad_moments`; their sparse alternative is experimental. These defaults were checked in `FramePipeline/vehicle_templates.py`.
+
+Sparse arms use rigid native props bound to three existing noncollinear nodes. That appearance binding adds no physical constraints. Open arm centres are not automatically filled with collision triangles.
+
+## Numerical conditioning
+
+Assembled masses, stiffness and damping share a timestep stability budget. Rest-state tangent checks include coupled connections and rigid members; independently safe blocks can become unsafe when assembled.
+
+Frequency requests such as `wishbone_frequency_hz` are numerical fitting targets, not measured material modulus or suspension spring rate. A successful fit cannot establish native dynamic qualification. Geometry, collision, nonlinear travel and live loading need their own checks.
+
+Loaded frame pivots and release-mount supports belong in the frame graph **before calibration**. Adding them later changes load paths and invalidates the sealed frame reference.
+
+## Compare the same mechanism
+
+Native motion is compared with the ideal linkage using captured hardpoints and the declared actuator target. CAD link lengths are authoritative inputs. Adjusting toe to minimize lateral drift would change the physical setup rather than prove the original mechanism accurate.
+
+Read [Joint conversion](/concepts/joints/) for mate classification and rack control, and [Suspension and drivetrain](/guides/suspension/) for setup decisions.

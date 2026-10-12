@@ -1,0 +1,27 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>__TITLE__ · Frame test</title>
+<style>body{font:15px system-ui;background:#14202c;color:#e5edf5;margin:24px}h1{font-size:24px}canvas{background:#0d1720;width:100%;height:520px;border-radius:8px}button,input{margin:8px}label{display:inline-block}img{max-width:100%;background:white}pre{overflow:auto}a{color:#99cfff}</style>
+<h1>__TITLE__</h1><p><strong>__STATUS__</strong></p><p>Measured BeamNG.drive node motion. Drag to orbit; wheel to zoom. Gray shows the starting shape.</p>
+<canvas id="view"></canvas><div><button id="play">Play</button><input id="time" type="range" min="0" value="0" style="width:50%"><span id="stamp"></span>
+<label>Deformation display scale <input id="scale" type="number" min="1" max="100" value="1" style="width:55px">×</label></div>
+<p id="note"></p><p>Position readback may repeat between graphics updates. Physics timestamps do not imply independent position updates; velocity provides the high-rate motion measurement.</p><details><summary>Measurements and units</summary><pre>__METRICS__</pre></details>
+<p><a href="metrics.json">Metrics JSON</a> · <a href="build_manifest.json">Exact build inputs</a></p>
+<img src="response.png" alt="Measured deformation, speed, applied force, and load-point displacement"><img src="deformation.png" alt="Recorded frame snapshots">
+<script>
+const data=__REPLAY_DATA__;
+const canvas=document.querySelector('#view'),ctx=canvas.getContext('2d'),slider=document.querySelector('#time'),scale=document.querySelector('#scale');
+slider.max=data.frames.length-1; let yaw=-.7,pitch=.45,zoom=1,playing=false,drag=null;
+const center=[0,1,2].map(i=>data.initial.reduce((s,p)=>s+p[i],0)/data.initial.length);
+const radius=Math.max(...data.initial.map(p=>Math.hypot(...p.map((v,i)=>v-center[i]))),.1);
+function project(p){let [x,y,z]=p.map((v,i)=>v-center[i]);let a=x*Math.cos(yaw)-y*Math.sin(yaw),b=x*Math.sin(yaw)+y*Math.cos(yaw);return [canvas.width/2+a*zoom*canvas.height/(radius*2.6),canvas.height/2-(z*Math.cos(pitch)-b*Math.sin(pitch))*zoom*canvas.height/(radius*2.6)]}
+function draw(){canvas.width=canvas.clientWidth*devicePixelRatio;canvas.height=canvas.clientHeight*devicePixelRatio;ctx.clearRect(0,0,canvas.width,canvas.height);let frame=+slider.value,factor=Math.min(100,Math.max(1,+scale.value||1));
+ const current=data.frames[frame].map((p,i)=>p.map((v,k)=>data.initial[i][k]+factor*(v-data.initial[i][k])));
+ function lines(points,color,width){ctx.strokeStyle=color;ctx.lineWidth=width*devicePixelRatio;ctx.beginPath();for(const [a,b]of data.edges){ctx.moveTo(...project(points[a]));ctx.lineTo(...project(points[b]))}ctx.stroke()}
+ lines(data.initial,'#53616e',.7);lines(current,'#58b9ec',1.2);
+ document.querySelector('#stamp').textContent=data.times[frame].toFixed(3)+' s';document.querySelector('#note').textContent=factor===1?'Actual deformation scale.':'Display exaggeration: '+factor+'×. Measurements remain unscaled.';
+}
+slider.oninput=draw;scale.oninput=draw;window.onresize=draw;canvas.onpointerdown=e=>{drag=[e.clientX,e.clientY];canvas.setPointerCapture(e.pointerId)};
+canvas.onpointermove=e=>{if(drag){yaw+=(e.clientX-drag[0])*.01;pitch+=(e.clientY-drag[1])*.01;drag=[e.clientX,e.clientY];draw()}};canvas.onpointerup=()=>drag=null;
+canvas.onwheel=e=>{e.preventDefault();zoom=Math.max(.2,Math.min(8,zoom*Math.exp(-e.deltaY*.001)));draw()};
+document.querySelector('#play').onclick=()=>{playing=!playing;document.querySelector('#play').textContent=playing?'Pause':'Play'};
+let previous=0;function tick(now){if(playing&&now-previous>33){slider.value=(+slider.value+1)%data.frames.length;previous=now;draw()}requestAnimationFrame(tick)}draw();requestAnimationFrame(tick);
+</script></html>

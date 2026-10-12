@@ -1,0 +1,35 @@
+{
+  "source_hashes_unchanged": true,
+  "source_hashes": {
+    "JBeamShellGenerator.py": "eb2640b1cf534d16d7c6eba988fe335b45a76c7934d966409787d724b41a74bf",
+    "JBeamMaterialTuner.py": "18074486eb05328a8a7b30d6cb31d42bb81f7f71369b44138dfff3c5c7e99c6c",
+    "JBeamFlexbodyAssociator.py": "fa4b72f59824f1f9fd88edbada0d9b4383242bfc58f1aa9546e1c6ca3d6b95f8",
+    "BuildMochiMod.py": "4c492404da47e85ce373d02e7922709921ab92a01d6c22e3bb906a66111a766d",
+    "mochi_hull.off": "a5e8a7fa1a287492c17f2f51abbb8ef8b524e6aa6d6118c8eab58281950778b0",
+    "mochi_raw.jbeam": "65f2e7c02c3cc2510296c5d111e5bef49f78cf9c68369316036ab06bb5cb3a4f",
+    "material.json": "764883167529708da90045f3702a079085db40eff8c1d1684df8a325bb11fa5a",
+    "mochi.dae": "9263b8c6e3490218b05082eeacf8bde596258fce4a75e6d5072440925525cd88",
+    "main.materials.json": "c92315b821580c7a5e01b05d4c4d6cc5329b529bb4120ed6a140e8ecb4d498a7",
+    "info.json": "645a9fa3bf48de27ac6bdca312dd75d5d4a11124664a257bbe6ba4cb2e112ba8",
+    "base.pc": "2439f00c3954e7ff06dac22ed2653625ac5289d20d9aeb18338b6708d5455a67",
+    "info_base.json": "a7b8ee5e6b063232a0726f28c60b3185e7bfd7590518d5bfce3f4442e1d3ecc0"
+  },
+  "cases": {
+    "4130-annealed": {
+      "graph_unchanged": true,
+      "node_count": 78,
+      "beam_count": 435,
+      "fixed_nodes_in_export": 0,
+      "jbeam_sha256": "94de742c19a1abff86ed96e3f6d46d79b278fbaa5952ac0eeb8608a46dd111b5",
+      "diagnostic_zip_matches": true
+    },
+    "4130-normalized": {
+      "graph_unchanged": true,
+      "node_count": 78,
+      "beam_count": 435,
+      "fixed_nodes_in_export": 0,
+      "jbeam_sha256": "24b031fa28090a3c0000a0c72a85490cf8371b094791ee1fdf4878004600c014",
+      "diagnostic_zip_matches": true
+    }
+  }
+}

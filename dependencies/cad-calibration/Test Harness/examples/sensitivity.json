@@ -1,0 +1,8 @@
+{
+  "scenarios": ["flex"],
+  "repeats": 1,
+  "candidates": [
+    {"name": "stiffer", "spring_scale": 1.2},
+    {"name": "more-damping", "damping_scale": 2.0}
+  ]
+}

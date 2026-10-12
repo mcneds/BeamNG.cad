@@ -1,0 +1,13 @@
+{
+  "density_kg_m3": 7850.0,
+  "young_pa": 205000000000.0,
+  "poisson": 0.29,
+  "frequency_limit_hz": 350.0,
+  "damping_ratio": 0.04,
+  "actual_condition": "unknown",
+  "joint_assumption": "fully_joined",
+  "body_overrides": {},
+  "force_limit_n": 20000.0,
+  "ramp_seconds": 12.0,
+  "slow_ramp_seconds": 24.0
+}

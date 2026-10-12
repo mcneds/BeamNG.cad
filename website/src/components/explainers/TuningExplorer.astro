@@ -1,0 +1,85 @@
+---
+import './explorers.css';
+import evidence from '../../data/frame-tuning.json';
+const first=evidence.cases[0];
+const projection=(p:number[])=>[p[1]+.45*p[0],p[2]+.22*p[0]];
+const flat=evidence.positions.map(projection),lo=[Math.min(...flat.map(p=>p[0])),Math.min(...flat.map(p=>p[1]))],hi=[Math.max(...flat.map(p=>p[0])),Math.max(...flat.map(p=>p[1]))];
+const zoom=Math.min(570/(hi[0]-lo[0]),205/(hi[1]-lo[1]));
+const xy=(p:number[])=>{const q=projection(p);return [65+(q[0]-lo[0])*zoom,270-(q[1]-lo[1])*zoom];};
+const shellEdges=evidence.edges.filter(edge=>edge.every(i=>evidence.names[i].startsWith('sh')));
+const path=(positions:number[][])=>shellEdges.map(([a,b])=>`M${xy(positions[a]).join(',')}L${xy(positions[b]).join(',')}`).join('');
+const factor=.35*.16/Math.max(...first.samples.flatMap(s=>s.displacements.map(v=>Math.hypot(...v))));
+const staticRest=path(evidence.positions),staticFit=path(evidence.positions.map((p,i)=>p.map((v,a)=>v+first.samples[1].displacements[i][a]*factor)));
+---
+<figure class="engineering-explorer" data-doc-evidence="frame-calibration">
+  <figcaption><strong>Keep the graph. Fit its response.</strong><span>{evidence.label} · {evidence.date}</span></figcaption>
+  <cad-tuning-explorer>
+    <div class="explorer-stages" role="group" aria-label="Calibration load case"><button data-case="flex" aria-pressed="true" disabled>Vertical flex</button><button data-case="torsion" aria-pressed="false" disabled>Torsion</button></div>
+    <div class="explorer-stages" role="group" aria-label="Calibration result"><button data-fit="0" aria-pressed="false" disabled>Initial springs</button><button data-fit="1" aria-pressed="true" disabled>Fitted springs</button></div>
+    <label class="explorer-status"><input type="checkbox" data-internal disabled/> Show internal beams</label>
+    <svg viewBox="0 0 700 330" role="img" aria-label="Frame graph with fixed supports and load points; deformation is magnified for comparison">
+      <g data-rest fill="none" stroke="var(--sl-color-gray-3)" stroke-width=".7"><path d={staticRest}/></g>
+      <g data-deformed fill="none" stroke="var(--sl-color-text-accent)" stroke-width="1.2"><path d={staticFit}/></g>
+      <g data-markers/>
+      <text x="15" y="24">Blue: displaced graph · grey: original</text>
+      <text x="15" y="314">Squares: fixed nodes · arrows: applied unit load</text>
+    </svg>
+    <label class="explorer-inputs">Display magnification <input data-scale type="range" min="0" max="100" value="35" aria-label="Deformation display magnification" disabled/><output data-scale-label>Auto-scaled</output></label>
+    <p class="explorer-status" data-result aria-live="polite">Fitted flex compliance: {(first.samples[1].compliance*1000000).toFixed(3)} µm/N; CAD reference: {(first.target*1000000).toFixed(3)} µm/N.</p>
+    <svg viewBox="0 0 700 160" role="img" aria-label="Fitted response versus CAD target, with the CAD target normalized to one">
+      <text x="10" y="25">Compliance relative to CAD reference</text>
+      <path d="M160 45V125H640" fill="none" stroke="var(--sl-color-gray-3)"/>
+      <text x="145" y="75" text-anchor="end">CAD reference</text><rect data-reference x="160" y="57" width="320" height="22" fill="var(--sl-color-gray-3)"/>
+      <text x="145" y="110" text-anchor="end">Selected graph</text><rect data-bar x="160" y="92" width="320" height="22" fill="var(--sl-color-text-accent)"/>
+      <text x="160" y="150">0</text><text data-tick x="480" y="150" text-anchor="middle">1×</text><text data-ratio x="650" y="110" text-anchor="end">1.000×</text>
+    </svg>
+    <noscript>The measured source values remain in the table below. JavaScript enables the deformation comparison.</noscript>
+  </cad-tuning-explorer>
+  <table><thead><tr><th>Case</th><th>CAD (µm/N)</th><th>Fitted (µm/N)</th><th>Response error</th></tr></thead><tbody>{evidence.cases.map(c=><tr><td>{c.id}</td><td>{(c.target*1e6).toFixed(3)}</td><td>{(c.samples[1].compliance*1e6).toFixed(3)}</td><td>{(Math.abs(c.samples[1].compliance/c.target-1)*100).toFixed(2)}%</td></tr>)}</tbody></table>
+  <p class="explorer-explanation">Same nodes and edges in both states. The drawing starts with shell connections for clarity; the solve includes every beam. Fixed supports remove whole-body motion. Both spring states use the same display magnification for each load case. The two states are endpoints, not a reconstructed optimizer history.</p>
+  <details><summary>What this example establishes</summary><p>The plotted responses are recomputed from the retained JBeam and checked against its report. This snapshot fitted {evidence.massKg.toFixed(3)} kg and reached a highest linear mode of {evidence.frequencyHz.toFixed(1)} Hz. Its historical offline result is not a current tuning target or vehicle qualification. <a href="/assets/wrapping/tuning-evidence.json">Download the extracted data and hashes</a>.</p></details>
+</figure>
+<script>
+  import evidence from '../../data/frame-tuning.json';
+  class TuningExplorer extends HTMLElement {
+    private events?:AbortController;
+    connectedCallback(){
+      this.events?.abort();this.events=new AbortController();const signal=this.events.signal;
+      let selectedCase='flex',fit=1;const scale=this.querySelector<HTMLInputElement>('[data-scale]')!;scale.disabled=false;
+      const internal=this.querySelector<HTMLInputElement>('[data-internal]')!;internal.disabled=false;
+      const points=evidence.positions;
+      // Fixed oblique projection so the same graph is directly comparable between states.
+      const project=(p:number[])=>[p[1]+.45*p[0],p[2]+.22*p[0]];
+      const flat=points.map(project);const lo=[Math.min(...flat.map(p=>p[0])),Math.min(...flat.map(p=>p[1]))],hi=[Math.max(...flat.map(p=>p[0])),Math.max(...flat.map(p=>p[1]))];
+      const zoom=Math.min(570/(hi[0]-lo[0]),205/(hi[1]-lo[1]));
+      const xy=(p:number[])=>{const q=project(p);return [65+(q[0]-lo[0])*zoom,270-(q[1]-lo[1])*zoom];};
+      const path=(positions:number[][])=>evidence.edges.filter(edge=>internal.checked||edge.every(i=>evidence.names[i].startsWith('sh'))).map(([a,b])=>`M${xy(positions[a]).join(',')}L${xy(positions[b]).join(',')}`).join('');
+      const svgPath=(d:string)=>{const el=document.createElementNS('http://www.w3.org/2000/svg','path');el.setAttribute('d',d);return el;};
+      this.querySelector('[data-rest]')!.replaceChildren(svgPath(path(points)));
+      const curve=svgPath('');this.querySelector('[data-deformed]')!.replaceChildren(curve);
+      const update=()=>{
+        this.querySelector('[data-rest]')!.replaceChildren(svgPath(path(points)));
+        const c=evidence.cases.find(v=>v.id===selectedCase)!,sample=c.samples[fit];
+        const max=Math.max(...c.samples.flatMap(s=>s.displacements.map(v=>Math.hypot(...v))));
+        const factor=Number(scale.value)/100*.16/max;
+        curve.setAttribute('d',path(points.map((p,i)=>p.map((v,a)=>v+sample.displacements[i][a]*factor))));
+        this.querySelector('[data-scale-label]')!.textContent=`${Math.round(factor).toLocaleString()}× displacement`;
+        const ratio=sample.compliance/c.target;
+        const width=420/Math.max(1.5,ratio*1.15);
+        this.querySelector('[data-reference]')!.setAttribute('width',String(width));
+        this.querySelector('[data-bar]')!.setAttribute('width',String(width*ratio));
+        this.querySelector('[data-tick]')!.setAttribute('x',String(160+width));
+        this.querySelector('[data-ratio]')!.textContent=ratio.toFixed(3)+'×';
+        this.querySelector('[data-result]')!.textContent=`${sample.label}: ${(sample.compliance*1e6).toFixed(3)} µm/N. CAD reference: ${(c.target*1e6).toFixed(3)} µm/N. Error: ${(Math.abs(ratio-1)*100).toFixed(2)}%.`;
+        const markers=this.querySelector('[data-markers]')!;markers.replaceChildren();
+        c.fixed.forEach(i=>{const [x,y]=xy(points[i]);const r=document.createElementNS('http://www.w3.org/2000/svg','rect');for(const [k,v] of Object.entries({x:x-4,y:y-4,width:8,height:8,fill:'var(--sl-color-white)'}))r.setAttribute(k,String(v));markers.append(r);});
+        c.loads.forEach(([i,load])=>{const index=i as number,v=load as number[],p=xy(points[index]),q=xy(points[index].map((x,a)=>x-v[a]*.14));const dx=p[0]-q[0],dy=p[1]-q[1],len=Math.hypot(dx,dy)||1,ux=dx/len,uy=dy/len;const arrow=svgPath(`M${q}L${p}M${p[0]-7*ux+4*uy},${p[1]-7*uy-4*ux}L${p}L${p[0]-7*ux-4*uy},${p[1]-7*uy+4*ux}`);arrow.setAttribute('stroke','#cf7520');arrow.setAttribute('fill','none');arrow.setAttribute('stroke-width','2');markers.append(arrow);});
+        this.dataset.case=selectedCase;this.dataset.fit=String(fit);
+      };
+      this.querySelectorAll<HTMLButtonElement>('button').forEach(button=>{button.disabled=false;button.addEventListener('click',()=>{if(button.dataset.case)selectedCase=button.dataset.case;if(button.dataset.fit)fit=Number(button.dataset.fit);this.querySelectorAll<HTMLButtonElement>('[data-case]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.case===selectedCase)));this.querySelectorAll<HTMLButtonElement>('[data-fit]').forEach(b=>b.setAttribute('aria-pressed',String(Number(b.dataset.fit)===fit)));update();},{signal});});
+      scale.addEventListener('input',update,{signal});internal.addEventListener('change',update,{signal});update();
+    }
+    disconnectedCallback(){this.events?.abort();}
+  }
+  if(!customElements.get('cad-tuning-explorer'))customElements.define('cad-tuning-explorer',TuningExplorer);
+</script>

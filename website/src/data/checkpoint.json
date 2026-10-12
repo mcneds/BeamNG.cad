@@ -1,0 +1,34 @@
+{
+  "date": "2026-10-09",
+  "scope": "Fresh synthetic native-mate vehicles; user CAD not modified",
+  "status": "not_qualified",
+  "source": "docs/evidence/mvp-checkpoint-20261009.json",
+  "sourceSha256": "320640ca5b5432899d293eb3d16f3959aea60676e4b6e54f721ef0cf7b0b26f7",
+  "limitSource": "docs/mvp-checkpoint-20261009.md",
+  "limitSourceSha256": "1f84f7b41e2b4f1c1fdb9926c6533b24f0702dbba5878d669eb8cdc036377c4e",
+  "lateralLimitM": 0.5,
+  "cases": [
+    {
+      "key": "primary",
+      "label": "Trailing arm / geared AWD",
+      "lateralDriftM": 2.8210611083714134,
+      "brokenBeams": 0,
+      "appliedSteering": 0,
+      "completedRuns": 4,
+      "requiredRuns": 24,
+      "status": "failed",
+      "receiptSha256": "8f460c0b2e5635e691eb173ab87f0a4661b6dcd6f63e714c0eca5670563a5151"
+    },
+    {
+      "key": "variant",
+      "label": "Rear wishbone / RWD",
+      "lateralDriftM": 1.6896585410568614,
+      "brokenBeams": 0,
+      "appliedSteering": 0,
+      "completedRuns": 4,
+      "requiredRuns": 24,
+      "status": "failed",
+      "receiptSha256": "9a32614bcec607e12d1f9d34c81cd7374a61d6ffda6049567752470964602f21"
+    }
+  ]
+}

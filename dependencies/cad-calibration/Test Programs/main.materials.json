@@ -1,0 +1,28 @@
+{
+  "mochi_frame_material": {
+    "name": "mochi_frame_material",
+    "mapTo": "mochi_frame_material",
+    "class": "Material",
+    "Stages": [
+      {
+        "colorPaletteMap": "/vehicles/common/nullcolormaskR.dds",
+        "ambientOcclusionMap": "/vehicles/common/null.dds",
+        "normalMap": "/vehicles/common/null_n.dds",
+        "instanceDiffuse": true,
+        "colorPaletteMapUseUV": 1,
+        "clearCoatFactor": 0.4,
+        "clearCoatRoughnessFactor": 0.25,
+        "metallicFactor": 0.75,
+        "roughnessFactor": 0.42
+      },
+      {},
+      {},
+      {}
+    ],
+    "dynamicCubemap": true,
+    "materialTag0": "beamng",
+    "materialTag1": "vehicle",
+    "order_simset": 0,
+    "version": 1.5
+  }
+}

@@ -1,0 +1,59 @@
+---
+import './explorers.css';
+import manifest from '../../../public/assets/wrapping/manifest.json';
+const stages=[['cad','CAD triangles'],['proxy','CGAL proxy'],['grid','Pruned grid'],['projected','Project to CAD'],['hull','Weld'],['graph','Structural graph'],['braced','Local bracing']];
+---
+<figure class="engineering-explorer" data-doc-evidence="frame-generation">
+  <figcaption><strong>From the actual frame to a structural graph</strong><span>{manifest.sourceLabel}</span></figcaption>
+  <cad-wrap-explorer>
+    <div class="explorer-inputs">
+      <label>Alpha divisor <select data-divisor disabled><option>4</option><option selected>7</option><option>12</option></select></label>
+      <label>Offset ratio <select data-ratio disabled><option>20</option><option selected>100</option><option>300</option></select></label>
+    </div>
+    <p class="explorer-formula" data-parameters>α = frame diagonal / divisor · offset = α / ratio</p>
+    <div class="explorer-stages" role="group" aria-label="Frame generation stage">
+      {stages.map(([id,label],i)=><button data-stage={id} type="button" aria-pressed={id==='proxy'?'true':'false'} disabled><span>{i+1}</span>{label}</button>)}
+    </div>
+    <div class="explorer-viewport" data-viewport>
+      <img src="/assets/wrapping/preview.svg" alt="Side projection of the exported Mochi frame alongside its computed CGAL pruning proxy." data-fallback/>
+    </div>
+    <div class="explorer-camera" role="group" aria-label="View controls">
+      <button type="button" data-view="perspective" disabled>3D view</button><button type="button" data-view="side" disabled>Side</button><button type="button" data-view="top" disabled>Top</button>
+      <label><input type="checkbox" data-overlay checked disabled/> Show CAD</label>
+    </div>
+    <p class="explorer-status" data-status role="status">Load the 3D view to orbit the frame and compare computed stages.</p>
+    <div class="explorer-metrics" data-metrics></div>
+    <p class="explorer-explanation" data-explanation>The proxy closes gaps for inside/outside classification. Its vertices do not become the final frame nodes.</p>
+    <button type="button" data-load disabled>Load interactive frame</button>
+    <noscript>The static figure and the steps below explain the same pipeline. JavaScript enables the parameter comparisons.</noscript>
+  </cad-wrap-explorer>
+  <details><summary>What is computed here?</summary>
+    <p>Each setting selects an actual CGAL and Blender run on the same CAD export. There are nine sampled combinations, with no interpolation. The browser renders the saved outputs; CGAL is not running in your browser.</p>
+    <p>Held fixed: grid {manifest.grid.join(' × ')}, projection offset {manifest.shrinkOffsetM*1000} mm, weld distance {manifest.weldDistanceM*1000} mm, symmetry off. These are example settings, not recommended defaults.</p>
+    <p>Source: {manifest.sourceTriangles.toLocaleString('en')} triangles, metres. The extracted model and each computed result are fingerprinted in the <a href="/assets/wrapping/manifest.json">dataset manifest</a>.</p>
+  </details>
+</figure>
+<script>
+  class WrapExplorer extends HTMLElement {
+    private cleanup?:()=>void;
+    private events?:AbortController;
+    connectedCallback(){
+      this.events?.abort();this.events=new AbortController();
+      const button=this.querySelector<HTMLButtonElement>('[data-load]')!;
+      button.disabled=false;
+      button.addEventListener('click',async()=>{
+        button.disabled=true;button.textContent='Loading frame…';
+        try {
+          const {mountWrapExplorer}=await import('../../lib/wrap-viewer');
+          if(!this.isConnected)return;
+          this.cleanup=await mountWrapExplorer(this,this.events!.signal);button.hidden=true;
+        } catch(error){
+          this.querySelector('[data-status]')!.textContent='The 3D view could not start. The static figure remains available. '+(error instanceof Error?error.message:'');
+          button.disabled=false;button.textContent='Retry 3D view';
+        }
+      },{signal:this.events.signal});
+    }
+    disconnectedCallback(){this.events?.abort();this.cleanup?.();}
+  }
+  if(!customElements.get('cad-wrap-explorer'))customElements.define('cad-wrap-explorer',WrapExplorer);
+</script>

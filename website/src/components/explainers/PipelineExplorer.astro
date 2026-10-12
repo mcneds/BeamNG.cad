@@ -1,0 +1,63 @@
+---
+import Explainer from './Explainer.astro';
+const stages = [
+  ['Capture CAD', 'Save ownership, materials and native references. The source snapshot records what actually came from the assembly.', 'geometry.json · material-snapshot.json'],
+  ['Build the graph', 'Generate nodes and constraints, review fixtures and fit the frame against its independent CAD reference. Numerical checks can still reject it.', 'review.json · calibrated frame'],
+  ['Package', 'Combine physical graphs with separately bound appearance meshes. Hashes connect the package to its exact source inputs.', 'manifest.json · vehicle ZIP'],
+  ['Verify', 'Record the compiled vehicle in BeamNG and evaluate its measurements. A completed recording can fail; installation is a later reviewed action.', 'verification receipts · captured evidence'],
+];
+---
+<Explainer title="Follow the artifacts through one generation" kind="Interactive workflow">
+  <cad-pipeline-demo>
+    <div class="pipeline-stages" role="group" aria-label="Generation stages">
+      {stages.map(([title],i)=><button type="button" data-stage={i} aria-pressed={i===0?'true':'false'} disabled><strong>0{i+1}</strong>{title}</button>)}
+    </div>
+    <svg class="demo-svg" viewBox="0 0 680 210" role="img" aria-label="CAD body outlines become a node graph, a package, and verification records">
+      <g data-stage-visual="0" data-active>
+        <path class="blue" d="M22 147 53 57 140 80 152 152Z M22 147 140 80M53 57 152 152"/>
+        <text x="83" y="185" text-anchor="middle">CAD</text>
+      </g>
+      <g data-stage-visual="1">
+        <path class="blue" d="M190 147 218 57 300 80 313 152Z M190 147 300 80M218 57 313 152"/>
+        <g fill="var(--demo-orange)"><circle cx="190" cy="147" r="6"/><circle cx="218" cy="57" r="6"/><circle cx="300" cy="80" r="6"/><circle cx="313" cy="152" r="6"/></g>
+        <text x="251" y="185" text-anchor="middle">Graph</text>
+      </g>
+      <g data-stage-visual="2">
+        <path class="blue" d="M365 80 424 55 479 80 421 108Z M365 80V143L421 166 479 143V80M421 108V166"/>
+        <text x="422" y="193" text-anchor="middle">Package</text>
+      </g>
+      <g data-stage-visual="3">
+        <path class="axis" d="M535 62V157H652"/><path class="blue" d="M539 133 563 123 587 130 611 95 646 80"/>
+        <path class="orange" stroke-dasharray="5 5" d="M535 111H651"/>
+        <text x="596" y="185" text-anchor="middle">Evidence</text>
+      </g>
+    </svg>
+    <p class="demo-status" aria-live="polite" data-description>{stages[0][1]}</p>
+    <p class="demo-note"><strong>Output: </strong><span data-artifact>{stages[0][2]}</span></p>
+    <div hidden>{stages.map(([,description,artifact])=><span data-details data-description={description} data-artifact={artifact}/> )}</div>
+    <noscript>Enable JavaScript to step through the stages. The full pipeline is described in the text below.</noscript>
+  </cad-pipeline-demo>
+  <span slot="caption">Select a stage. This diagram explains the workflow; the small graph is schematic, not measured telemetry. An appearance revision reuses the existing physical package instead of recalibrating its graph.</span>
+</Explainer>
+<script>
+  class CadPipelineDemo extends HTMLElement {
+    private events?: AbortController;
+    connectedCallback() {
+      this.events?.abort(); this.events=new AbortController();
+      const buttons=this.querySelectorAll<HTMLButtonElement>('[data-stage]');
+      buttons.forEach(button=>{
+        button.disabled=false;
+        button.addEventListener('click',()=>{
+          const index=Number(button.dataset.stage);
+          buttons.forEach(b=>b.setAttribute('aria-pressed',String(b===button)));
+          this.querySelectorAll('[data-stage-visual]').forEach((g,i)=>g.toggleAttribute('data-active',i===index));
+          const detail=this.querySelectorAll<HTMLElement>('[data-details]')[index];
+          this.querySelector('[data-description]:not([data-details])')!.textContent=detail.dataset.description!;
+          this.querySelector('[data-artifact]:not([data-details])')!.textContent=detail.dataset.artifact!;
+        },{signal:this.events!.signal});
+      });
+    }
+    disconnectedCallback(){this.events?.abort();}
+  }
+  if(!customElements.get('cad-pipeline-demo'))customElements.define('cad-pipeline-demo',CadPipelineDemo);
+</script>

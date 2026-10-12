@@ -1,0 +1,64 @@
+---
+import './explorers.css';
+import evidence from '../../data/mate-compilation.json';
+---
+<figure class="engineering-explorer" data-doc-evidence="mate-compilation">
+  <figcaption><strong>Combine the mates before choosing a joint</strong><span>Captured assembly connection: {evidence.label}</span></figcaption>
+  <cad-mate-explorer>
+    <div class="explorer-stages" role="group" aria-label="Mate combination">{evidence.cases.map(c=><button data-case={c.id} aria-pressed={c.id==='hinge'?'true':'false'} disabled>{c.label}</button>)}</div>
+    <svg viewBox="0 0 700 275" role="img" aria-label="Concentric surfaces share an axis; a seating plane removes sliding; locked rotation removes turning">
+      <path d="M45 140H645" stroke="var(--sl-color-gray-3)" stroke-dasharray="7 5"/>
+      <rect x="105" y="95" width="210" height="90" rx="10" fill="var(--sl-color-accent-low)" stroke="var(--sl-color-text-accent)" stroke-width="2"/>
+      <rect x="140" y="120" width="330" height="40" rx="6" fill="var(--sl-color-bg-sidebar)" stroke="var(--sl-color-white)" stroke-width="2"/>
+      <path data-plane d="M315 65V215" stroke="#cf7520" stroke-width="4"/>
+      <g data-slide stroke="var(--sl-color-text-accent)" stroke-width="3" fill="none"><path d="M365 65H465m-8-7 8 7-8 7M365 65l8-7m-8 7 8 7"/></g>
+      <g data-rotate stroke="var(--sl-color-text-accent)" stroke-width="3" fill="none"><path d="M485 100C525 65 565 130 520 175m0-12v12h13"/></g>
+      <text x="105" y="235">Concentric axis</text><text x="290" y="255">Seating plane</text>
+      <text x="390" y="42">Slide</text><text x="505" y="205">Rotate</text>
+      <text x="35" y="22">Constraint geometry (schematic section)</text>
+    </svg>
+    <p data-result class="explorer-explanation" aria-live="polite">Axis + seating plane → revolute joint: one rotation remains.</p>
+    <div class="dof-strip" data-freedoms></div>
+    <details open><summary>Constraint matrix → remaining motion</summary>
+      <p class="explorer-status">Each row constrains a combination of translations and rotations. The nullspace contains the motions that satisfy every row. Repeated rows do not remove another degree of freedom.</p>
+      <div class="matrix-scroll"><table><thead><tr><th>Row</th><th>tx</th><th>ty</th><th>tz</th><th>ωx</th><th>ωy</th><th>ωz</th></tr></thead><tbody data-matrix/></table></div>
+      <p data-rank class="explorer-status">Six relative degrees of freedom, five independent constraints, one remaining motion.</p>
+    </details>
+    <div class="mate-realization">
+      <svg viewBox="0 0 700 180" role="img" aria-label="A revolute joint can share two distinct points along the captured hinge axis between rigid groups">
+        <path d="M110 150 285 55 415 55 170 150ZM285 55 415 55 575 145 520 145Z" fill="none" stroke="var(--sl-color-text-accent)" stroke-width="2"/>
+        <path d="M245 55H465" stroke="#cf7520" stroke-width="3"/>
+        <circle cx="285" cy="55" r="7" fill="#cf7520"/><circle cx="415" cy="55" r="7" fill="#cf7520"/>
+        <text x="255" y="30">Two shared axis points</text><text x="110" y="175">Parent rigid group</text><text x="465" y="175">Child rigid group</text>
+      </svg>
+      <p class="explorer-explanation">For the captured hinge, the supported template binds two distinct hardpoints on this axis. Both rigid groups share those pivot nodes, leaving rotation around their connecting line. A mate does not become one beam. Ownership, hardpoint bindings and the supported mechanism contract must still pass review.</p>
+    </div>
+    <noscript>The captured axis and plane form a revolute joint. Enable JavaScript to inspect the actual compiler matrices and alternative constraint combinations.</noscript>
+  </cad-mate-explorer>
+  <details><summary>Source and alternatives</summary><p>Axis and plane come from saved native mate records. The two “locked” options are hypothetical edits run through the real compiler; they are not changes to your assembly. Matrices and classifications were exported from <code>joint_authoring.classify</code>. <a href="/assets/wrapping/mate-evidence.json">Data and source hashes</a>.</p></details>
+</figure>
+<script>
+  import evidence from '../../data/mate-compilation.json';
+  class MateExplorer extends HTMLElement {
+    private events?:AbortController;
+    connectedCallback(){
+      this.events?.abort();this.events=new AbortController();const signal=this.events.signal;
+      const update=(id:string)=>{
+        const c=evidence.cases.find(c=>c.id===id)!;
+        this.querySelectorAll<HTMLButtonElement>('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.case===id)));
+        const slide=c.kind==='cylindrical'||c.kind==='prismatic',rotate=c.kind==='cylindrical'||c.kind==='revolute';
+        this.querySelector('[data-slide]')!.setAttribute('opacity',slide?'1':'.12');this.querySelector('[data-rotate]')!.setAttribute('opacity',rotate?'1':'.12');this.querySelector('[data-plane]')!.setAttribute('opacity',id==='hinge'||id==='fixed'?'1':'.12');
+        this.querySelector('[data-result]')!.textContent=`${c.label} → ${c.kind}: ${c.dof} remaining ${c.dof===1?'motion':'motions'}.${c.hypothetical?' Hypothetical locked-rotation edit.':''}`;
+        const freedoms=this.querySelector('[data-freedoms]')!;freedoms.replaceChildren();
+        for(const [name,free] of [['Axial slide',slide],['Axial rotation',rotate]] as const){const span=document.createElement('span');span.dataset.free=String(free);span.textContent=name+': '+(free?'free':'blocked');freedoms.append(span);}
+        const matrix=this.querySelector('[data-matrix]')!;matrix.replaceChildren();
+        c.matrix.forEach((row,i)=>{const tr=document.createElement('tr');const label=document.createElement('th');label.scope='row';label.textContent=String(i+1);tr.append(label);row.forEach(v=>{const td=document.createElement('td');td.textContent=Math.abs(v)<1e-7?'0':v.toFixed(3);if(Math.abs(v)<1e-7)td.style.opacity='.45';tr.append(td);});matrix.append(tr);});
+        this.querySelector('[data-rank]')!.textContent=`${c.matrix.length} rows · rank ${6-c.dof} · nullspace dimension ${c.dof}. These coefficients use the captured assembly axes and centres.`;
+        this.querySelector<HTMLElement>('.mate-realization')!.hidden=id!=='hinge';this.dataset.case=id;
+      };
+      this.querySelectorAll<HTMLButtonElement>('button').forEach(b=>{b.disabled=false;b.addEventListener('click',()=>update(b.dataset.case!),{signal});});update('hinge');
+    }
+    disconnectedCallback(){this.events?.abort();}
+  }
+  if(!customElements.get('cad-mate-explorer'))customElements.define('cad-mate-explorer',MateExplorer);
+</script>

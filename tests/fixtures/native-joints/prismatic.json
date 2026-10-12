@@ -1,0 +1,70 @@
+{
+  "expected_kind": "prismatic",
+  "native_snapshot_sha256": "8d8abe54930a0731f0c72769fe984c845f65f55b9333b133e5f8af0556516130",
+  "source": "Owned SolidWorks Test-NativeJoints.ps1 fixture, 2026-10-08; persistent references hashed for compact regression input",
+  "workspace": {
+    "Bindings": [],
+    "Joints": [],
+    "Mates": [
+      {
+        "Entities": [
+          {
+            "Axis": [
+              0,
+              1,
+              0
+            ],
+            "ComponentId": "owner0",
+            "ComponentReference": "eb0609909799b2569aa77b55434ab69285f761084d65b3ffee6cb79a02174910",
+            "Kind": "cylinder",
+            "MemberId": null,
+            "Point": [
+              0,
+              -0.1,
+              0
+            ],
+            "Radius": 0.03,
+            "Reference": "5d3e2dba8274d4096633be32d3f7d02fe4a66907e8116096b3883690f639a816"
+          },
+          {
+            "Axis": [
+              0,
+              1,
+              0
+            ],
+            "ComponentId": "owner1",
+            "ComponentReference": "a30d84830a4d0943d10132fea645afd9d97b058a5e5d91baf2c99f8241c62229",
+            "Kind": "cylinder",
+            "MemberId": null,
+            "Point": [
+              0,
+              -0.1,
+              0
+            ],
+            "Radius": 0.03,
+            "Reference": "a4c49151b8b069f3ced7fb128854cc973352b1d9e0eb124aff74f6b20feaacbe"
+          }
+        ],
+        "HasLimits": false,
+        "Id": "698f4ff53cd191456d1faa56ed8f11809735c4570e864eaf807e1efe14bdf4cb",
+        "Issue": null,
+        "LockRotation": true,
+        "Maximum": 0,
+        "Minimum": 0,
+        "Name": "Concentric1",
+        "PositioningOnly": false,
+        "Reference": "249c026d7d4b7835c726e299cb5e75eb0259166eedd5e8274c9096a66bfaddd2",
+        "Suppressed": false,
+        "Type": "CONCENTRIC",
+        "Value": 0
+      }
+    ],
+    "Members": [],
+    "Mode": "legacy",
+    "Parameters": [],
+    "ScanConfiguration": null,
+    "ScanDocument": null,
+    "ScanHash": null,
+    "ScanStamp": 108
+  }
+}

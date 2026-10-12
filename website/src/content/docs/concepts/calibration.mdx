@@ -1,0 +1,59 @@
+---
+title: "Frame generation and calibration"
+description: "Understand the hull graph, independent tubular reference, mass fitting, stiffness targets and numerical limits."
+sidebar:
+  order: 3
+---
+
+import TuningExplorer from '../../../components/explainers/TuningExplorer.astro';
+
+See [Alpha wrapping and graph generation](/concepts/wrapping/) for the geometry stages and an interactive view of the actual frame.
+
+<TuningExplorer />
+
+The geometry stages produce a rigid graph. Calibration then assigns masses and
+fits the springs to reference load cases while keeping the node positions and
+connections fixed. Geometric rigidity alone does not establish material accuracy
+or numerical stability.
+
+CAD calibration (local source: `dependencies/cad-calibration/Test Harness/frame_harness/calibration.py`)
+uses an independent Timoshenko-member reference for tubular frames. Section and
+path extraction audits the individual CAD bodies, including coped and curved
+members; ambiguous geometry is rejected. Those centerlines belong only to this
+frame reference. Panel, bulk-part and vehicle mechanism generation do not require them.
+
+Positive node masses fit total CAD mass, COM and inertia. A linear program
+maximizes the minimum supported node weight; the numerical fallback is reported.
+An exact-moment, strictly convex second step distributes the remaining mass
+uniquely. This prevents a change in node ordering from choosing a different LP
+vertex and introducing an arbitrary left/right mass difference. Loaded pivots,
+global load points and fixture reaction points receive explicit mass priorities.
+Spring fitting matches elastic reference responses while preserving node locations
+and edges. Its smooth minimax objective focuses on the worst load-case residual;
+loads sharing fixed supports reuse one matrix factorization per iteration. Every
+declared mounting patch is checked in three directions, alongside whole-frame
+flex/torsion and hinge couples. Each case faces independent acceptance checks.
+Yield capacities use independently calculated member targets and a
+load-case capacity envelope. The final mass-normalized spectrum screens stability,
+and endpoint reduced masses determine damping. Final acceptance checks the response
+again after numerical spring projection. New geometry needs a new calibration;
+the archived Mochi mass/node/beam counts are not targets for another frame.
+
+An optional `elastic_seed_file` initializes spring fitting from an earlier graph
+with identical nodes and edges. The file must be part of the sealed generation
+inputs; all current reference, mass, modal and yield checks run again. The optional
+`elastic_fit_target_error` stops optimization at a chosen error between zero and
+8% (default 1%). It does not change the independent 10% response acceptance limit
+or skip yield checks. Changed settings require a fresh generation directory.
+
+Mounted frames also declare [native four-node torsion bars](https://documentation.beamng.com/modding/vehicle/sections/torsionbars/)
+before calibration. Axial beams alone can leave thin structures too compliant
+within the modal cap, even with many extra diagonals. Broad lever triangles supply
+angular restraint without adding mass. Their angle gradients enter the same
+stiffness fit as axial extension gradients; spring/damping units are Nm/rad and
+Nm·s/rad. Consecutive support beams provide the native break relationship. The
+combined stiffness/damping tangent reserves half of the explicit 0.5 ms step
+stability budget for later attachments. Angular yield/rupture capacities are
+proxies: physical frame qualification is blocked until native torsion-bar damage
+telemetry is validated. Numerical calibration or vehicle handling success does
+not remove that limitation.

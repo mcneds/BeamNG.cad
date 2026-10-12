@@ -1,0 +1,57 @@
+{
+  "Name": "Mochi",
+  "Brand": "Mochi",
+  "Author": "ak1di",
+  "Country": "Other",
+  "Description": "A lightweight custom tube-frame vehicle with a material-mapped deformable structure.",
+  "Body Style": "Buggy",
+  "Type": "Car",
+  "Population": 0,
+  "default_pc": "base",
+  "defaultPaintName1": "Frame Black",
+  "Years": {
+    "min": 2026,
+    "max": 2026
+  },
+  "paints": {
+    "Frame Black": {
+      "baseColor": [
+        0.025,
+        0.025,
+        0.025,
+        2.0
+      ],
+      "clearcoat": 0.2,
+      "clearcoatRoughness": 0.25,
+      "metallic": 0.75,
+      "roughness": 0.42
+    },
+    "Mochi Orange": {
+      "baseColor": [
+        0.95,
+        0.18,
+        0.015,
+        2.0
+      ],
+      "clearcoat": 0.8,
+      "clearcoatRoughness": 0.12,
+      "metallic": 0.25,
+      "roughness": 0.38
+    },
+    "Bare Steel": {
+      "baseColor": [
+        0.35,
+        0.37,
+        0.4,
+        2.0
+      ],
+      "clearcoat": 0.0,
+      "clearcoatRoughness": 0.45,
+      "metallic": 0.9,
+      "roughness": 0.48
+    }
+  },
+  "multiPaintSetups": [],
+  "libraryPaints": [],
+  "Derby Class": "Other"
+}

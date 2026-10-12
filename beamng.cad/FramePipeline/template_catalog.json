@@ -1,0 +1,2499 @@
+{
+  "version": 1,
+  "units": "SI; BeamNG vehicle axes +X left, +Y rearward, +Z up",
+  "coordinate_reference": "https://documentation.beamng.com/modding/vehicle/coordinate_systems/",
+  "current_release": [
+    "calibrated_frame",
+    "panel",
+    "bulk",
+    "fixed_mount",
+    "breakable_fastener",
+    "wishbone",
+    "trailing_arm",
+    "pressure_wheel",
+    "cvt_rear_drive",
+    "cvt_rear_front_output"
+  ],
+  "vehicle_layout": {
+    "rear_suspension": "trailing_arm",
+    "drivetrain": [
+      "mainEngine",
+      "cvt",
+      "rear_final_drive",
+      "front_output_gear",
+      "front_prop_shaft",
+      "front_diff"
+    ],
+    "rear_final_drive": {
+      "contains": [
+        "rear differential",
+        "geared front output"
+      ],
+      "input": "cvt",
+      "outputs": [
+        "rear_left_axle",
+        "rear_right_axle",
+        "front_output_gear"
+      ],
+      "contract": "Front torque is taken from the rear final-drive assembly's geared output. Never attach it to either rear halfshaft or silently replace it with a transfer case.",
+      "required_hardware_inputs": [
+        "CVT ratio range and control",
+        "rear final reduction",
+        "front output ratio and direction",
+        "front final reduction",
+        "disconnect or overrunning behavior",
+        "reverse arrangement"
+      ],
+      "unknown_values": "Required; no inferred hardware ratio or disconnect setting is a verified default."
+    }
+  },
+  "representations": {
+    "panel": {
+      "status": "prototype",
+      "inputs": [
+        "selected solid or surface CAD bodies",
+        "native solid mass, or surface thickness plus SolidWorks material density, or excluded surface mass",
+        "mount anchors",
+        "optional spacing"
+      ],
+      "generation": "Infer a plane from the CAD extent, sample the projected surface, preserve openings, use surface triangles for collision and numerical depth locators for stability.",
+      "checks": [
+        "mass and COM",
+        "reported inertia error",
+        "mount independence",
+        "detachment and exclusive skin ownership"
+      ],
+      "limits": "Curved panels use bulk until a surface-following panel implementation is qualified. Panel bending and rupture are not calibrated. An entirely weightless selection follows a physical parent with no independent collision or breakaway."
+    },
+    "bulk": {
+      "status": "prototype",
+      "inputs": [
+        "selected CAD bodies",
+        "native material mass",
+        "mount anchors",
+        "optional alpha and offset"
+      ],
+      "generation": "Use alpha wrap with bounded density trials; convex is an explicit alternative. Fit CAD mass and moments using a sparse internal structure.",
+      "checks": [
+        "closed CAD volume",
+        "mass and COM",
+        "inertia",
+        "graph rank",
+        "modal frequency",
+        "mounting stability"
+      ],
+      "limits": "Engine internals and damage are not represented by an enclosing bulk cage."
+    },
+    "wishbone": {
+      "status": "prototype",
+      "hardpoints": [
+        "inboard_front",
+        "inboard_rear",
+        "outboard_joint",
+        "optional_damper_mount"
+      ],
+      "generation": "One main axial member per leg, an inboard cross member, and sparse volumetric bracing. All nodes and skin belong to one arm component; chassis bushings and upright ball joint are separate connections.",
+      "parameters": [
+        "CAD-following hardpoints and local offsets",
+        "structural depth",
+        "native CAD mass and inertia",
+        "bushing compliance",
+        "joint limits"
+      ],
+      "checks": [
+        "six free rigid-body modes for the arm",
+        "intended suspension mobility after joints",
+        "travel sweep",
+        "camber and toe",
+        "damper motion ratio",
+        "independent mount failure"
+      ],
+      "limits": "A single beam carries axial load only. It cannot by itself make a rigid wishbone or define a hinge."
+    },
+    "trailing_arm": {
+      "status": "prototype",
+      "hardpoints": [
+        "pivot_axis_a",
+        "pivot_axis_b",
+        "hub_center",
+        "hub_axis",
+        "spring_mount",
+        "damper_mount"
+      ],
+      "generation": "One structural arm component with a volumetric rigid cage. Two separated pivot points define the chassis hinge; the hub and spring/damper mounts follow that arm. Add toe or camber links only when present in the real assembly.",
+      "parameters": [
+        "pivot axis and offsets",
+        "CAD mass and inertia",
+        "arm length",
+        "hub orientation",
+        "spring/damper attachment points",
+        "bushing compliance",
+        "travel limits"
+      ],
+      "checks": [
+        "single intended pivot degree of freedom",
+        "hub trajectory",
+        "wheelbase change",
+        "toe and camber over travel",
+        "spring/damper motion ratio",
+        "CV joint plunge and angle",
+        "bump and droop limits"
+      ]
+    },
+    "rear_final_drive_with_front_output": {
+      "status": "prototype",
+      "generation": "Implement the declared CVT/rear-final-drive/front-geared-output power graph after hardware parameters are provided. Reuse a stock device only if its ports and torque/speed behavior match this contract.",
+      "checks": [
+        "compiled device graph matches the declared route",
+        "shaft direction",
+        "ratio chain to each axle",
+        "power and torque conservation",
+        "reverse",
+        "front/rear wheel-speed compatibility",
+        "disconnect behavior if fitted"
+      ],
+      "recorder_contract": "Extend the exported_vehicle manifest and recorder capabilities for CVT and rear geared output. Do not invent mainEngine/clutch/gearbox/transfercase/frontShaft devices to satisfy the old synthetic-vehicle tests."
+    }
+  },
+  "implementation_order": [
+    {
+      "stage": "component foundations",
+      "deliverables": [
+        "project identity",
+        "exclusive body ownership",
+        "persistent CAD anchors",
+        "local offsets",
+        "panel and bulk prototypes",
+        "independent fastener groups"
+      ],
+      "evidence": "Offline regression tests, isolated native CAD fixtures, and owned BeamNG mounting scenarios."
+    },
+    {
+      "stage": "calibrated mounting patches",
+      "deliverables": [
+        "include dedicated parent mount nodes before frame mass/stiffness fitting",
+        "short paired fastener beams",
+        "invalidate calibration after moving mount nodes"
+      ],
+      "evidence": "Fresh calibration and mount tests for each changed graph; current immutable-frame fallback uses a spanning support patch and reports its size."
+    },
+    {
+      "stage": "suspension mechanisms",
+      "deliverables": [
+        "parametric wishbone",
+        "rear trailing arm",
+        "hinge/ball-joint/bushing connections",
+        "springs and dampers",
+        "travel editor"
+      ],
+      "evidence": "Analytical mobility and travel sweep, then pinned-chassis BeamNG articulation, then complete rolling chassis."
+    },
+    {
+      "stage": "drivetrain",
+      "deliverables": [
+        "CVT control",
+        "rear final-drive assembly",
+        "geared front output",
+        "front propshaft and differential",
+        "halfshafts"
+      ],
+      "evidence": "Ratio/direction/conservation tests, supported drivetrain, acceleration/braking/reverse, then steering and articulation under power."
+    },
+    {
+      "stage": "vehicle qualification",
+      "deliverables": [
+        "real CAD ownership and hardpoint review",
+        "regeneration invariants",
+        "complete acceptance suite"
+      ],
+      "evidence": "Three independent recordings per scenario with current file hashes and rendered evidence; retain generation, recording and qualification as separate statuses."
+    }
+  ],
+  "continuous_work": {
+    "checkpoint": "tools/vehicle-system-work.json",
+    "iteration": [
+      "make a fresh immutable build",
+      "run focused offline checks",
+      "test disposable CAD fixtures",
+      "run owned BeamNG scenarios in one reusable session",
+      "inspect failures and images",
+      "archive compact passing evidence and full failure evidence"
+    ],
+    "ownership": "Do not save/restart the user's SolidWorks session or alter normal installed mods during automatic verification."
+  },
+  "mvp_roles": [
+    {
+      "id": "frame",
+      "label": "Frame",
+      "representation": "calibrated_frame",
+      "generator": "calibrated",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": []
+    },
+    {
+      "id": "engine",
+      "label": "Engine",
+      "representation": "bulk",
+      "generator": "housing prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "mounts",
+        "output_axis"
+      ]
+    },
+    {
+      "id": "cvt",
+      "label": "CVT",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "input_axis",
+        "output_axis"
+      ]
+    },
+    {
+      "id": "rear_final_drive",
+      "label": "Rear differential + geared front output",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "mounts",
+        "input_axis",
+        "front_output_axis",
+        "left_output_axis",
+        "right_output_axis"
+      ]
+    },
+    {
+      "id": "front_propshaft",
+      "label": "Front driveshaft section",
+      "representation": "bulk",
+      "generator": "One CAD group per shaft section. Multiple sections require an ordered shaft chain and reviewed carrier supports.",
+      "required": true,
+      "repeatable": true,
+      "hardpoints": [
+        "rear_joint",
+        "front_joint"
+      ]
+    },
+    {
+      "id": "front_diff",
+      "label": "Front differential",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "mounts",
+        "input_axis",
+        "left_output_axis",
+        "right_output_axis"
+      ]
+    },
+    {
+      "id": "fl_upper_wishbone",
+      "label": "FL upper wishbone",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "inboard_front",
+        "inboard_rear",
+        "outboard_joint"
+      ]
+    },
+    {
+      "id": "fl_lower_wishbone",
+      "label": "FL lower wishbone",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "inboard_front",
+        "inboard_rear",
+        "outboard_joint"
+      ]
+    },
+    {
+      "id": "fl_upright",
+      "label": "FL upright",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "upper_joint",
+        "lower_joint",
+        "hub_axis",
+        "steering_joint"
+      ]
+    },
+    {
+      "id": "fl_tie_rod",
+      "label": "FL steering tie rod",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "rack_joint",
+        "upright_joint"
+      ]
+    },
+    {
+      "id": "fr_upper_wishbone",
+      "label": "FR upper wishbone",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "inboard_front",
+        "inboard_rear",
+        "outboard_joint"
+      ]
+    },
+    {
+      "id": "fr_lower_wishbone",
+      "label": "FR lower wishbone",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "inboard_front",
+        "inboard_rear",
+        "outboard_joint"
+      ]
+    },
+    {
+      "id": "fr_upright",
+      "label": "FR upright",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "upper_joint",
+        "lower_joint",
+        "hub_axis",
+        "steering_joint"
+      ]
+    },
+    {
+      "id": "fr_tie_rod",
+      "label": "FR steering tie rod",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "rack_joint",
+        "upright_joint"
+      ]
+    },
+    {
+      "id": "rl_trailing_arm",
+      "label": "RL trailing arm",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "pivot_axis_a",
+        "pivot_axis_b",
+        "hub_center",
+        "hub_axis",
+        "spring_mount",
+        "damper_mount"
+      ]
+    },
+    {
+      "id": "rr_trailing_arm",
+      "label": "RR trailing arm",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "pivot_axis_a",
+        "pivot_axis_b",
+        "hub_center",
+        "hub_axis",
+        "spring_mount",
+        "damper_mount"
+      ]
+    },
+    {
+      "id": "steering_rack",
+      "label": "Steering rack",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "mounts",
+        "left_joint",
+        "right_joint"
+      ]
+    },
+    {
+      "id": "fl_halfshaft",
+      "label": "FL halfshaft / CV axle",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "inner_joint",
+        "outer_joint"
+      ]
+    },
+    {
+      "id": "fl_spring_damper",
+      "label": "FL spring + damper",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "chassis_mount",
+        "suspension_mount"
+      ]
+    },
+    {
+      "id": "fl_wheel",
+      "label": "FL wheel / tire / hub",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "hub_center",
+        "wheel_axis"
+      ]
+    },
+    {
+      "id": "fl_brake",
+      "label": "FL brake hardware",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": false,
+      "repeatable": false,
+      "hardpoints": [
+        "hub_axis",
+        "caliper_mount"
+      ]
+    },
+    {
+      "id": "fr_halfshaft",
+      "label": "FR halfshaft / CV axle",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "inner_joint",
+        "outer_joint"
+      ]
+    },
+    {
+      "id": "fr_spring_damper",
+      "label": "FR spring + damper",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "chassis_mount",
+        "suspension_mount"
+      ]
+    },
+    {
+      "id": "fr_wheel",
+      "label": "FR wheel / tire / hub",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "hub_center",
+        "wheel_axis"
+      ]
+    },
+    {
+      "id": "fr_brake",
+      "label": "FR brake hardware",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": false,
+      "repeatable": false,
+      "hardpoints": [
+        "hub_axis",
+        "caliper_mount"
+      ]
+    },
+    {
+      "id": "rl_halfshaft",
+      "label": "RL halfshaft / CV axle",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "inner_joint",
+        "outer_joint"
+      ]
+    },
+    {
+      "id": "rl_spring_damper",
+      "label": "RL spring + damper",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "chassis_mount",
+        "suspension_mount"
+      ]
+    },
+    {
+      "id": "rl_wheel",
+      "label": "RL wheel / tire / hub",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "hub_center",
+        "wheel_axis"
+      ]
+    },
+    {
+      "id": "rl_brake",
+      "label": "RL brake hardware",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": false,
+      "repeatable": false,
+      "hardpoints": [
+        "hub_axis",
+        "caliper_mount"
+      ]
+    },
+    {
+      "id": "rr_halfshaft",
+      "label": "RR halfshaft / CV axle",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "inner_joint",
+        "outer_joint"
+      ]
+    },
+    {
+      "id": "rr_spring_damper",
+      "label": "RR spring + damper",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "chassis_mount",
+        "suspension_mount"
+      ]
+    },
+    {
+      "id": "rr_wheel",
+      "label": "RR wheel / tire / hub",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "hub_center",
+        "wheel_axis"
+      ]
+    },
+    {
+      "id": "rr_brake",
+      "label": "RR brake hardware",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": false,
+      "repeatable": false,
+      "hardpoints": [
+        "hub_axis",
+        "caliper_mount"
+      ]
+    },
+    {
+      "id": "panel",
+      "label": "Body panel",
+      "representation": "panel",
+      "generator": "prototype",
+      "required": true,
+      "repeatable": true,
+      "hardpoints": [
+        "mounts"
+      ]
+    },
+    {
+      "id": "accessory",
+      "label": "Other mounted accessory",
+      "representation": "bulk",
+      "generator": "prototype",
+      "required": false,
+      "repeatable": true,
+      "hardpoints": [
+        "mounts"
+      ]
+    },
+    {
+      "id": "cvt_output_shaft",
+      "label": "Separate CVT-to-rear-diff shaft",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": false,
+      "repeatable": true,
+      "hardpoints": [
+        "input_joint",
+        "output_joint"
+      ]
+    },
+    {
+      "id": "shaft_carrier",
+      "label": "Propshaft carrier bearing / bracket",
+      "representation": "bulk",
+      "generator": "Stationary support, separate from rotating shaft sections. Declare its frame mounts and intermediate shaft joint.",
+      "required": false,
+      "repeatable": true,
+      "hardpoints": [
+        "mounts",
+        "shaft_joint"
+      ]
+    },
+    {
+      "id": "rl_upper_wishbone",
+      "label": "RL upper wishbone",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "inboard_front",
+        "inboard_rear",
+        "outboard_joint"
+      ]
+    },
+    {
+      "id": "rl_lower_wishbone",
+      "label": "RL lower wishbone",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "inboard_front",
+        "inboard_rear",
+        "outboard_joint"
+      ]
+    },
+    {
+      "id": "rl_upright",
+      "label": "RL upright",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "upper_joint",
+        "lower_joint",
+        "hub_axis",
+        "toe_joint"
+      ]
+    },
+    {
+      "id": "rl_toe_link",
+      "label": "RL toe link",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "chassis_joint",
+        "upright_joint"
+      ]
+    },
+    {
+      "id": "rr_upper_wishbone",
+      "label": "RR upper wishbone",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "inboard_front",
+        "inboard_rear",
+        "outboard_joint"
+      ]
+    },
+    {
+      "id": "rr_lower_wishbone",
+      "label": "RR lower wishbone",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "inboard_front",
+        "inboard_rear",
+        "outboard_joint"
+      ]
+    },
+    {
+      "id": "rr_upright",
+      "label": "RR upright",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "upper_joint",
+        "lower_joint",
+        "hub_axis",
+        "toe_joint"
+      ]
+    },
+    {
+      "id": "rr_toe_link",
+      "label": "RR toe link",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "chassis_joint",
+        "upright_joint"
+      ]
+    },
+    {
+      "id": "fl_strut",
+      "label": "FL strut + spring",
+      "representation": "bulk",
+      "generator": "planned",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "top_mount",
+        "upright_mount"
+      ]
+    },
+    {
+      "id": "fl_lower_arm",
+      "label": "FL lower control arm",
+      "representation": "bulk",
+      "generator": "planned",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "inboard_front",
+        "inboard_rear",
+        "outboard_joint"
+      ]
+    },
+    {
+      "id": "fr_strut",
+      "label": "FR strut + spring",
+      "representation": "bulk",
+      "generator": "planned",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "top_mount",
+        "upright_mount"
+      ]
+    },
+    {
+      "id": "fr_lower_arm",
+      "label": "FR lower control arm",
+      "representation": "bulk",
+      "generator": "planned",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "inboard_front",
+        "inboard_rear",
+        "outboard_joint"
+      ]
+    },
+    {
+      "id": "rear_diff",
+      "label": "Rear differential (rear drive)",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "mounts",
+        "input_axis",
+        "left_output_axis",
+        "right_output_axis"
+      ]
+    },
+    {
+      "id": "rl_upper_radius_rod",
+      "label": "RL upper radius rod",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "chassis_joint",
+        "upright_joint"
+      ]
+    },
+    {
+      "id": "rl_lower_radius_rod",
+      "label": "RL lower radius rod",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "chassis_joint",
+        "upright_joint"
+      ]
+    },
+    {
+      "id": "rr_upper_radius_rod",
+      "label": "RR upper radius rod",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "chassis_joint",
+        "upright_joint"
+      ]
+    },
+    {
+      "id": "rr_lower_radius_rod",
+      "label": "RR lower radius rod",
+      "representation": "bulk",
+      "generator": "vehicle template prototype",
+      "required": true,
+      "repeatable": false,
+      "hardpoints": [
+        "chassis_joint",
+        "upright_joint"
+      ]
+    }
+  ],
+  "mvp_base_roles": [
+    "frame",
+    "panel",
+    "accessory",
+    "fl_wheel",
+    "fl_brake",
+    "fr_wheel",
+    "fr_brake",
+    "rl_wheel",
+    "rl_brake",
+    "rr_wheel",
+    "rr_brake"
+  ],
+  "mvp_base_associations": [
+    {
+      "from_role": "frame",
+      "to_role": "panel",
+      "kind": "mount"
+    },
+    {
+      "from_role": "frame",
+      "to_role": "accessory",
+      "kind": "mount"
+    }
+  ],
+  "mvp_template_sets": [
+    {
+      "id": "front_suspension",
+      "label": "Front suspension",
+      "default": "double_wishbone",
+      "options": [
+        {
+          "id": "double_wishbone",
+          "label": "Double wishbone",
+          "roles": [
+            "steering_rack",
+            "fl_upright",
+            "fl_tie_rod",
+            "fl_upper_wishbone",
+            "fl_lower_wishbone",
+            "fl_spring_damper",
+            "fr_upright",
+            "fr_tie_rod",
+            "fr_upper_wishbone",
+            "fr_lower_wishbone",
+            "fr_spring_damper"
+          ],
+          "associations": [
+            {
+              "from_role": "frame",
+              "to_role": "steering_rack",
+              "kind": "mount"
+            },
+            {
+              "from_role": "steering_rack",
+              "to_role": "fl_tie_rod",
+              "kind": "steering_joint"
+            },
+            {
+              "from_role": "fl_tie_rod",
+              "to_role": "fl_upright",
+              "kind": "steering_joint"
+            },
+            {
+              "from_role": "fl_upright",
+              "to_role": "fl_wheel",
+              "kind": "hub"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "fl_upper_wishbone",
+              "kind": "pivot"
+            },
+            {
+              "from_role": "fl_upper_wishbone",
+              "to_role": "fl_upright",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "fl_lower_wishbone",
+              "kind": "pivot"
+            },
+            {
+              "from_role": "fl_lower_wishbone",
+              "to_role": "fl_upright",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "fl_spring_damper",
+              "kind": "spring_damper_mount"
+            },
+            {
+              "from_role": "fl_spring_damper",
+              "to_role": "fl_lower_wishbone",
+              "kind": "spring_damper_mount"
+            },
+            {
+              "from_role": "steering_rack",
+              "to_role": "fr_tie_rod",
+              "kind": "steering_joint"
+            },
+            {
+              "from_role": "fr_tie_rod",
+              "to_role": "fr_upright",
+              "kind": "steering_joint"
+            },
+            {
+              "from_role": "fr_upright",
+              "to_role": "fr_wheel",
+              "kind": "hub"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "fr_upper_wishbone",
+              "kind": "pivot"
+            },
+            {
+              "from_role": "fr_upper_wishbone",
+              "to_role": "fr_upright",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "fr_lower_wishbone",
+              "kind": "pivot"
+            },
+            {
+              "from_role": "fr_lower_wishbone",
+              "to_role": "fr_upright",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "fr_spring_damper",
+              "kind": "spring_damper_mount"
+            },
+            {
+              "from_role": "fr_spring_damper",
+              "to_role": "fr_lower_wishbone",
+              "kind": "spring_damper_mount"
+            }
+          ],
+          "joint_requests": [
+            {
+              "id": "FL.hub",
+              "label": "FL hub",
+              "role": "fl_wheel",
+              "marker": "hub_center"
+            },
+            {
+              "id": "FL.hub_axis",
+              "label": "FL hub axis",
+              "role": "fl_wheel",
+              "marker": "wheel_axis"
+            },
+            {
+              "id": "FL.shock_top",
+              "label": "FL shock top",
+              "role": "fl_spring_damper",
+              "marker": "chassis_mount"
+            },
+            {
+              "id": "FL.shock_bottom",
+              "label": "FL shock bottom",
+              "role": "fl_spring_damper",
+              "marker": "suspension_mount"
+            },
+            {
+              "id": "FL.upper_inner_front",
+              "label": "FL upper inner front",
+              "role": "fl_upper_wishbone",
+              "marker": "inboard_front"
+            },
+            {
+              "id": "FL.upper_inner_rear",
+              "label": "FL upper inner rear",
+              "role": "fl_upper_wishbone",
+              "marker": "inboard_rear"
+            },
+            {
+              "id": "FL.upper_ball",
+              "label": "FL upper ball",
+              "role": "fl_upper_wishbone",
+              "marker": "outboard_joint"
+            },
+            {
+              "id": "FL.lower_inner_front",
+              "label": "FL lower inner front",
+              "role": "fl_lower_wishbone",
+              "marker": "inboard_front"
+            },
+            {
+              "id": "FL.lower_inner_rear",
+              "label": "FL lower inner rear",
+              "role": "fl_lower_wishbone",
+              "marker": "inboard_rear"
+            },
+            {
+              "id": "FL.lower_ball",
+              "label": "FL lower ball",
+              "role": "fl_lower_wishbone",
+              "marker": "outboard_joint"
+            },
+            {
+              "id": "FL.tie_inner",
+              "label": "FL tie inner",
+              "role": "fl_tie_rod",
+              "marker": "rack_joint"
+            },
+            {
+              "id": "FL.tie_outer",
+              "label": "FL tie outer",
+              "role": "fl_tie_rod",
+              "marker": "upright_joint"
+            },
+            {
+              "id": "FR.hub",
+              "label": "FR hub",
+              "role": "fr_wheel",
+              "marker": "hub_center"
+            },
+            {
+              "id": "FR.hub_axis",
+              "label": "FR hub axis",
+              "role": "fr_wheel",
+              "marker": "wheel_axis"
+            },
+            {
+              "id": "FR.shock_top",
+              "label": "FR shock top",
+              "role": "fr_spring_damper",
+              "marker": "chassis_mount"
+            },
+            {
+              "id": "FR.shock_bottom",
+              "label": "FR shock bottom",
+              "role": "fr_spring_damper",
+              "marker": "suspension_mount"
+            },
+            {
+              "id": "FR.upper_inner_front",
+              "label": "FR upper inner front",
+              "role": "fr_upper_wishbone",
+              "marker": "inboard_front"
+            },
+            {
+              "id": "FR.upper_inner_rear",
+              "label": "FR upper inner rear",
+              "role": "fr_upper_wishbone",
+              "marker": "inboard_rear"
+            },
+            {
+              "id": "FR.upper_ball",
+              "label": "FR upper ball",
+              "role": "fr_upper_wishbone",
+              "marker": "outboard_joint"
+            },
+            {
+              "id": "FR.lower_inner_front",
+              "label": "FR lower inner front",
+              "role": "fr_lower_wishbone",
+              "marker": "inboard_front"
+            },
+            {
+              "id": "FR.lower_inner_rear",
+              "label": "FR lower inner rear",
+              "role": "fr_lower_wishbone",
+              "marker": "inboard_rear"
+            },
+            {
+              "id": "FR.lower_ball",
+              "label": "FR lower ball",
+              "role": "fr_lower_wishbone",
+              "marker": "outboard_joint"
+            },
+            {
+              "id": "FR.tie_inner",
+              "label": "FR tie inner",
+              "role": "fr_tie_rod",
+              "marker": "rack_joint"
+            },
+            {
+              "id": "FR.tie_outer",
+              "label": "FR tie outer",
+              "role": "fr_tie_rod",
+              "marker": "upright_joint"
+            }
+          ]
+        },
+        {
+          "id": "strut",
+          "label": "MacPherson strut",
+          "roles": [
+            "steering_rack",
+            "fl_upright",
+            "fl_tie_rod",
+            "fl_lower_arm",
+            "fl_strut",
+            "fr_upright",
+            "fr_tie_rod",
+            "fr_lower_arm",
+            "fr_strut"
+          ],
+          "associations": [
+            {
+              "from_role": "frame",
+              "to_role": "steering_rack",
+              "kind": "mount"
+            },
+            {
+              "from_role": "steering_rack",
+              "to_role": "fl_tie_rod",
+              "kind": "steering_joint"
+            },
+            {
+              "from_role": "fl_tie_rod",
+              "to_role": "fl_upright",
+              "kind": "steering_joint"
+            },
+            {
+              "from_role": "fl_upright",
+              "to_role": "fl_wheel",
+              "kind": "hub"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "fl_lower_arm",
+              "kind": "pivot"
+            },
+            {
+              "from_role": "fl_lower_arm",
+              "to_role": "fl_upright",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "fl_strut",
+              "kind": "strut_mount"
+            },
+            {
+              "from_role": "fl_strut",
+              "to_role": "fl_upright",
+              "kind": "strut_mount"
+            },
+            {
+              "from_role": "steering_rack",
+              "to_role": "fr_tie_rod",
+              "kind": "steering_joint"
+            },
+            {
+              "from_role": "fr_tie_rod",
+              "to_role": "fr_upright",
+              "kind": "steering_joint"
+            },
+            {
+              "from_role": "fr_upright",
+              "to_role": "fr_wheel",
+              "kind": "hub"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "fr_lower_arm",
+              "kind": "pivot"
+            },
+            {
+              "from_role": "fr_lower_arm",
+              "to_role": "fr_upright",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "fr_strut",
+              "kind": "strut_mount"
+            },
+            {
+              "from_role": "fr_strut",
+              "to_role": "fr_upright",
+              "kind": "strut_mount"
+            }
+          ],
+          "joint_requests": []
+        }
+      ]
+    },
+    {
+      "id": "rear_suspension",
+      "label": "Rear suspension",
+      "default": "trailing_arm",
+      "options": [
+        {
+          "id": "trailing_arm",
+          "label": "Trailing arms",
+          "roles": [
+            "rl_spring_damper",
+            "rl_trailing_arm",
+            "rr_spring_damper",
+            "rr_trailing_arm"
+          ],
+          "associations": [
+            {
+              "from_role": "frame",
+              "to_role": "rl_spring_damper",
+              "kind": "spring_damper_mount"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "rl_trailing_arm",
+              "kind": "pivot"
+            },
+            {
+              "from_role": "rl_spring_damper",
+              "to_role": "rl_trailing_arm",
+              "kind": "spring_damper_mount"
+            },
+            {
+              "from_role": "rl_trailing_arm",
+              "to_role": "rl_wheel",
+              "kind": "hub"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "rr_spring_damper",
+              "kind": "spring_damper_mount"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "rr_trailing_arm",
+              "kind": "pivot"
+            },
+            {
+              "from_role": "rr_spring_damper",
+              "to_role": "rr_trailing_arm",
+              "kind": "spring_damper_mount"
+            },
+            {
+              "from_role": "rr_trailing_arm",
+              "to_role": "rr_wheel",
+              "kind": "hub"
+            }
+          ],
+          "joint_requests": [
+            {
+              "id": "RL.hub",
+              "label": "RL hub",
+              "role": "rl_wheel",
+              "marker": "hub_center"
+            },
+            {
+              "id": "RL.hub_axis",
+              "label": "RL hub axis",
+              "role": "rl_wheel",
+              "marker": "wheel_axis"
+            },
+            {
+              "id": "RL.shock_top",
+              "label": "RL shock top",
+              "role": "rl_spring_damper",
+              "marker": "chassis_mount"
+            },
+            {
+              "id": "RL.shock_bottom",
+              "label": "RL shock bottom",
+              "role": "rl_spring_damper",
+              "marker": "suspension_mount"
+            },
+            {
+              "id": "RL.hinge_inner",
+              "label": "RL hinge inner",
+              "role": "rl_trailing_arm",
+              "marker": "pivot_axis_a"
+            },
+            {
+              "id": "RL.hinge_outer",
+              "label": "RL hinge outer",
+              "role": "rl_trailing_arm",
+              "marker": "pivot_axis_b"
+            },
+            {
+              "id": "RR.hub",
+              "label": "RR hub",
+              "role": "rr_wheel",
+              "marker": "hub_center"
+            },
+            {
+              "id": "RR.hub_axis",
+              "label": "RR hub axis",
+              "role": "rr_wheel",
+              "marker": "wheel_axis"
+            },
+            {
+              "id": "RR.shock_top",
+              "label": "RR shock top",
+              "role": "rr_spring_damper",
+              "marker": "chassis_mount"
+            },
+            {
+              "id": "RR.shock_bottom",
+              "label": "RR shock bottom",
+              "role": "rr_spring_damper",
+              "marker": "suspension_mount"
+            },
+            {
+              "id": "RR.hinge_inner",
+              "label": "RR hinge inner",
+              "role": "rr_trailing_arm",
+              "marker": "pivot_axis_a"
+            },
+            {
+              "id": "RR.hinge_outer",
+              "label": "RR hinge outer",
+              "role": "rr_trailing_arm",
+              "marker": "pivot_axis_b"
+            }
+          ]
+        },
+        {
+          "id": "double_wishbone",
+          "label": "Double wishbone independent",
+          "roles": [
+            "rl_spring_damper",
+            "rl_upper_wishbone",
+            "rl_lower_wishbone",
+            "rl_upright",
+            "rl_toe_link",
+            "rr_spring_damper",
+            "rr_upper_wishbone",
+            "rr_lower_wishbone",
+            "rr_upright",
+            "rr_toe_link"
+          ],
+          "associations": [
+            {
+              "from_role": "frame",
+              "to_role": "rl_spring_damper",
+              "kind": "spring_damper_mount"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "rl_upper_wishbone",
+              "kind": "pivot"
+            },
+            {
+              "from_role": "rl_upper_wishbone",
+              "to_role": "rl_upright",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "rl_lower_wishbone",
+              "kind": "pivot"
+            },
+            {
+              "from_role": "rl_lower_wishbone",
+              "to_role": "rl_upright",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "rl_toe_link",
+              "kind": "toe_joint"
+            },
+            {
+              "from_role": "rl_toe_link",
+              "to_role": "rl_upright",
+              "kind": "toe_joint"
+            },
+            {
+              "from_role": "rl_spring_damper",
+              "to_role": "rl_lower_wishbone",
+              "kind": "spring_damper_mount"
+            },
+            {
+              "from_role": "rl_upright",
+              "to_role": "rl_wheel",
+              "kind": "hub"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "rr_spring_damper",
+              "kind": "spring_damper_mount"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "rr_upper_wishbone",
+              "kind": "pivot"
+            },
+            {
+              "from_role": "rr_upper_wishbone",
+              "to_role": "rr_upright",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "rr_lower_wishbone",
+              "kind": "pivot"
+            },
+            {
+              "from_role": "rr_lower_wishbone",
+              "to_role": "rr_upright",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "rr_toe_link",
+              "kind": "toe_joint"
+            },
+            {
+              "from_role": "rr_toe_link",
+              "to_role": "rr_upright",
+              "kind": "toe_joint"
+            },
+            {
+              "from_role": "rr_spring_damper",
+              "to_role": "rr_lower_wishbone",
+              "kind": "spring_damper_mount"
+            },
+            {
+              "from_role": "rr_upright",
+              "to_role": "rr_wheel",
+              "kind": "hub"
+            }
+          ],
+          "joint_requests": [
+            {
+              "id": "RL.hub",
+              "label": "RL hub",
+              "role": "rl_wheel",
+              "marker": "hub_center"
+            },
+            {
+              "id": "RL.hub_axis",
+              "label": "RL hub axis",
+              "role": "rl_wheel",
+              "marker": "wheel_axis"
+            },
+            {
+              "id": "RL.shock_top",
+              "label": "RL shock top",
+              "role": "rl_spring_damper",
+              "marker": "chassis_mount"
+            },
+            {
+              "id": "RL.shock_bottom",
+              "label": "RL shock bottom",
+              "role": "rl_spring_damper",
+              "marker": "suspension_mount"
+            },
+            {
+              "id": "RL.upper_inner_front",
+              "label": "RL upper inner front",
+              "role": "rl_upper_wishbone",
+              "marker": "inboard_front"
+            },
+            {
+              "id": "RL.upper_inner_rear",
+              "label": "RL upper inner rear",
+              "role": "rl_upper_wishbone",
+              "marker": "inboard_rear"
+            },
+            {
+              "id": "RL.upper_ball",
+              "label": "RL upper ball",
+              "role": "rl_upper_wishbone",
+              "marker": "outboard_joint"
+            },
+            {
+              "id": "RL.lower_inner_front",
+              "label": "RL lower inner front",
+              "role": "rl_lower_wishbone",
+              "marker": "inboard_front"
+            },
+            {
+              "id": "RL.lower_inner_rear",
+              "label": "RL lower inner rear",
+              "role": "rl_lower_wishbone",
+              "marker": "inboard_rear"
+            },
+            {
+              "id": "RL.lower_ball",
+              "label": "RL lower ball",
+              "role": "rl_lower_wishbone",
+              "marker": "outboard_joint"
+            },
+            {
+              "id": "RL.tie_inner",
+              "label": "RL tie inner",
+              "role": "rl_toe_link",
+              "marker": "chassis_joint"
+            },
+            {
+              "id": "RL.tie_outer",
+              "label": "RL tie outer",
+              "role": "rl_toe_link",
+              "marker": "upright_joint"
+            },
+            {
+              "id": "RR.hub",
+              "label": "RR hub",
+              "role": "rr_wheel",
+              "marker": "hub_center"
+            },
+            {
+              "id": "RR.hub_axis",
+              "label": "RR hub axis",
+              "role": "rr_wheel",
+              "marker": "wheel_axis"
+            },
+            {
+              "id": "RR.shock_top",
+              "label": "RR shock top",
+              "role": "rr_spring_damper",
+              "marker": "chassis_mount"
+            },
+            {
+              "id": "RR.shock_bottom",
+              "label": "RR shock bottom",
+              "role": "rr_spring_damper",
+              "marker": "suspension_mount"
+            },
+            {
+              "id": "RR.upper_inner_front",
+              "label": "RR upper inner front",
+              "role": "rr_upper_wishbone",
+              "marker": "inboard_front"
+            },
+            {
+              "id": "RR.upper_inner_rear",
+              "label": "RR upper inner rear",
+              "role": "rr_upper_wishbone",
+              "marker": "inboard_rear"
+            },
+            {
+              "id": "RR.upper_ball",
+              "label": "RR upper ball",
+              "role": "rr_upper_wishbone",
+              "marker": "outboard_joint"
+            },
+            {
+              "id": "RR.lower_inner_front",
+              "label": "RR lower inner front",
+              "role": "rr_lower_wishbone",
+              "marker": "inboard_front"
+            },
+            {
+              "id": "RR.lower_inner_rear",
+              "label": "RR lower inner rear",
+              "role": "rr_lower_wishbone",
+              "marker": "inboard_rear"
+            },
+            {
+              "id": "RR.lower_ball",
+              "label": "RR lower ball",
+              "role": "rr_lower_wishbone",
+              "marker": "outboard_joint"
+            },
+            {
+              "id": "RR.tie_inner",
+              "label": "RR tie inner",
+              "role": "rr_toe_link",
+              "marker": "chassis_joint"
+            },
+            {
+              "id": "RR.tie_outer",
+              "label": "RR tie outer",
+              "role": "rr_toe_link",
+              "marker": "upright_joint"
+            }
+          ]
+        },
+        {
+          "id": "trailing_radius_toe",
+          "label": "Trailing arm + 2 radius rods + toe link (ball joints)",
+          "roles": [
+            "rl_spring_damper",
+            "rl_trailing_arm",
+            "rl_upright",
+            "rl_upper_radius_rod",
+            "rl_lower_radius_rod",
+            "rl_toe_link",
+            "rr_spring_damper",
+            "rr_trailing_arm",
+            "rr_upright",
+            "rr_upper_radius_rod",
+            "rr_lower_radius_rod",
+            "rr_toe_link"
+          ],
+          "hardpoints": {
+            "rl_trailing_arm": [
+              "pivot_axis_a",
+              "pivot_axis_b",
+              "carrier_joint",
+              "spring_mount",
+              "damper_mount"
+            ],
+            "rl_upright": [
+              "carrier_joint",
+              "upper_radius_joint",
+              "lower_radius_joint",
+              "toe_joint",
+              "hub_axis"
+            ],
+            "rr_trailing_arm": [
+              "pivot_axis_a",
+              "pivot_axis_b",
+              "carrier_joint",
+              "spring_mount",
+              "damper_mount"
+            ],
+            "rr_upright": [
+              "carrier_joint",
+              "upper_radius_joint",
+              "lower_radius_joint",
+              "toe_joint",
+              "hub_axis"
+            ]
+          },
+          "associations": [
+            {
+              "from_role": "frame",
+              "to_role": "rl_trailing_arm",
+              "kind": "two_ball_joints"
+            },
+            {
+              "from_role": "rl_trailing_arm",
+              "to_role": "rl_upright",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "rl_spring_damper",
+              "kind": "spring_damper_mount"
+            },
+            {
+              "from_role": "rl_spring_damper",
+              "to_role": "rl_trailing_arm",
+              "kind": "spring_damper_mount"
+            },
+            {
+              "from_role": "rl_upright",
+              "to_role": "rl_wheel",
+              "kind": "hub"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "rl_upper_radius_rod",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "rl_upper_radius_rod",
+              "to_role": "rl_upright",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "rl_lower_radius_rod",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "rl_lower_radius_rod",
+              "to_role": "rl_upright",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "rl_toe_link",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "rl_toe_link",
+              "to_role": "rl_upright",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "rr_trailing_arm",
+              "kind": "two_ball_joints"
+            },
+            {
+              "from_role": "rr_trailing_arm",
+              "to_role": "rr_upright",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "rr_spring_damper",
+              "kind": "spring_damper_mount"
+            },
+            {
+              "from_role": "rr_spring_damper",
+              "to_role": "rr_trailing_arm",
+              "kind": "spring_damper_mount"
+            },
+            {
+              "from_role": "rr_upright",
+              "to_role": "rr_wheel",
+              "kind": "hub"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "rr_upper_radius_rod",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "rr_upper_radius_rod",
+              "to_role": "rr_upright",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "rr_lower_radius_rod",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "rr_lower_radius_rod",
+              "to_role": "rr_upright",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "rr_toe_link",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "rr_toe_link",
+              "to_role": "rr_upright",
+              "kind": "ball_joint"
+            }
+          ],
+          "joint_requests": [
+            {
+              "id": "RL.hub",
+              "label": "RL hub",
+              "role": "rl_wheel",
+              "marker": "hub_center"
+            },
+            {
+              "id": "RL.hub_axis",
+              "label": "RL hub axis",
+              "role": "rl_wheel",
+              "marker": "wheel_axis"
+            },
+            {
+              "id": "RL.shock_top",
+              "label": "RL shock top",
+              "role": "rl_spring_damper",
+              "marker": "chassis_mount"
+            },
+            {
+              "id": "RL.shock_bottom",
+              "label": "RL shock bottom",
+              "role": "rl_spring_damper",
+              "marker": "suspension_mount"
+            },
+            {
+              "id": "RL.hinge_inner",
+              "label": "RL hinge inner",
+              "role": "rl_trailing_arm",
+              "marker": "pivot_axis_a"
+            },
+            {
+              "id": "RL.hinge_outer",
+              "label": "RL hinge outer",
+              "role": "rl_trailing_arm",
+              "marker": "pivot_axis_b"
+            },
+            {
+              "id": "RL.carrier_ball",
+              "label": "RL carrier ball",
+              "role": "rl_trailing_arm",
+              "marker": "carrier_joint"
+            },
+            {
+              "id": "RL.radius_upper_inner",
+              "label": "RL radius upper inner",
+              "role": "rl_upper_radius_rod",
+              "marker": "chassis_joint"
+            },
+            {
+              "id": "RL.radius_upper_outer",
+              "label": "RL radius upper outer",
+              "role": "rl_upper_radius_rod",
+              "marker": "upright_joint"
+            },
+            {
+              "id": "RL.radius_lower_inner",
+              "label": "RL radius lower inner",
+              "role": "rl_lower_radius_rod",
+              "marker": "chassis_joint"
+            },
+            {
+              "id": "RL.radius_lower_outer",
+              "label": "RL radius lower outer",
+              "role": "rl_lower_radius_rod",
+              "marker": "upright_joint"
+            },
+            {
+              "id": "RL.tie_inner",
+              "label": "RL tie inner",
+              "role": "rl_toe_link",
+              "marker": "chassis_joint"
+            },
+            {
+              "id": "RL.tie_outer",
+              "label": "RL tie outer",
+              "role": "rl_toe_link",
+              "marker": "upright_joint"
+            },
+            {
+              "id": "RR.hub",
+              "label": "RR hub",
+              "role": "rr_wheel",
+              "marker": "hub_center"
+            },
+            {
+              "id": "RR.hub_axis",
+              "label": "RR hub axis",
+              "role": "rr_wheel",
+              "marker": "wheel_axis"
+            },
+            {
+              "id": "RR.shock_top",
+              "label": "RR shock top",
+              "role": "rr_spring_damper",
+              "marker": "chassis_mount"
+            },
+            {
+              "id": "RR.shock_bottom",
+              "label": "RR shock bottom",
+              "role": "rr_spring_damper",
+              "marker": "suspension_mount"
+            },
+            {
+              "id": "RR.hinge_inner",
+              "label": "RR hinge inner",
+              "role": "rr_trailing_arm",
+              "marker": "pivot_axis_a"
+            },
+            {
+              "id": "RR.hinge_outer",
+              "label": "RR hinge outer",
+              "role": "rr_trailing_arm",
+              "marker": "pivot_axis_b"
+            },
+            {
+              "id": "RR.carrier_ball",
+              "label": "RR carrier ball",
+              "role": "rr_trailing_arm",
+              "marker": "carrier_joint"
+            },
+            {
+              "id": "RR.radius_upper_inner",
+              "label": "RR radius upper inner",
+              "role": "rr_upper_radius_rod",
+              "marker": "chassis_joint"
+            },
+            {
+              "id": "RR.radius_upper_outer",
+              "label": "RR radius upper outer",
+              "role": "rr_upper_radius_rod",
+              "marker": "upright_joint"
+            },
+            {
+              "id": "RR.radius_lower_inner",
+              "label": "RR radius lower inner",
+              "role": "rr_lower_radius_rod",
+              "marker": "chassis_joint"
+            },
+            {
+              "id": "RR.radius_lower_outer",
+              "label": "RR radius lower outer",
+              "role": "rr_lower_radius_rod",
+              "marker": "upright_joint"
+            },
+            {
+              "id": "RR.tie_inner",
+              "label": "RR tie inner",
+              "role": "rr_toe_link",
+              "marker": "chassis_joint"
+            },
+            {
+              "id": "RR.tie_outer",
+              "label": "RR tie outer",
+              "role": "rr_toe_link",
+              "marker": "upright_joint"
+            }
+          ]
+        },
+        {
+          "id": "trailing_ball_radius_toe",
+          "label": "Ball-pivot trailing arm + 2 radius rods + hinged upright + toe link",
+          "roles": [
+            "rl_spring_damper",
+            "rl_trailing_arm",
+            "rl_upright",
+            "rl_upper_radius_rod",
+            "rl_lower_radius_rod",
+            "rl_toe_link",
+            "rr_spring_damper",
+            "rr_trailing_arm",
+            "rr_upright",
+            "rr_upper_radius_rod",
+            "rr_lower_radius_rod",
+            "rr_toe_link"
+          ],
+          "hardpoints": {
+            "rl_trailing_arm": [
+              "chassis_ball",
+              "carrier_axis_a",
+              "carrier_axis_b",
+              "upper_radius_joint",
+              "lower_radius_joint",
+              "spring_mount",
+              "damper_mount"
+            ],
+            "rl_upright": [
+              "carrier_axis_a",
+              "carrier_axis_b",
+              "toe_joint",
+              "hub_axis"
+            ],
+            "rr_trailing_arm": [
+              "chassis_ball",
+              "carrier_axis_a",
+              "carrier_axis_b",
+              "upper_radius_joint",
+              "lower_radius_joint",
+              "spring_mount",
+              "damper_mount"
+            ],
+            "rr_upright": [
+              "carrier_axis_a",
+              "carrier_axis_b",
+              "toe_joint",
+              "hub_axis"
+            ],
+            "rl_upper_radius_rod": [
+              "chassis_joint",
+              "arm_joint"
+            ],
+            "rl_lower_radius_rod": [
+              "chassis_joint",
+              "arm_joint"
+            ],
+            "rr_upper_radius_rod": [
+              "chassis_joint",
+              "arm_joint"
+            ],
+            "rr_lower_radius_rod": [
+              "chassis_joint",
+              "arm_joint"
+            ]
+          },
+          "associations": [
+            {
+              "from_role": "frame",
+              "to_role": "rl_trailing_arm",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "rl_trailing_arm",
+              "to_role": "rl_upright",
+              "kind": "revolute"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "rl_spring_damper",
+              "kind": "spring_damper_mount"
+            },
+            {
+              "from_role": "rl_spring_damper",
+              "to_role": "rl_trailing_arm",
+              "kind": "spring_damper_mount"
+            },
+            {
+              "from_role": "rl_upright",
+              "to_role": "rl_wheel",
+              "kind": "hub"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "rl_upper_radius_rod",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "rl_upper_radius_rod",
+              "to_role": "rl_trailing_arm",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "rl_lower_radius_rod",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "rl_lower_radius_rod",
+              "to_role": "rl_trailing_arm",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "rl_toe_link",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "rl_toe_link",
+              "to_role": "rl_upright",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "rr_trailing_arm",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "rr_trailing_arm",
+              "to_role": "rr_upright",
+              "kind": "revolute"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "rr_spring_damper",
+              "kind": "spring_damper_mount"
+            },
+            {
+              "from_role": "rr_spring_damper",
+              "to_role": "rr_trailing_arm",
+              "kind": "spring_damper_mount"
+            },
+            {
+              "from_role": "rr_upright",
+              "to_role": "rr_wheel",
+              "kind": "hub"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "rr_upper_radius_rod",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "rr_upper_radius_rod",
+              "to_role": "rr_trailing_arm",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "rr_lower_radius_rod",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "rr_lower_radius_rod",
+              "to_role": "rr_trailing_arm",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "rr_toe_link",
+              "kind": "ball_joint"
+            },
+            {
+              "from_role": "rr_toe_link",
+              "to_role": "rr_upright",
+              "kind": "ball_joint"
+            }
+          ],
+          "joint_requests": [
+            {
+              "id": "RL.hub",
+              "label": "RL hub",
+              "role": "rl_wheel",
+              "marker": "hub_center"
+            },
+            {
+              "id": "RL.hub_axis",
+              "label": "RL hub axis",
+              "role": "rl_wheel",
+              "marker": "wheel_axis"
+            },
+            {
+              "id": "RL.shock_top",
+              "label": "RL shock top",
+              "role": "rl_spring_damper",
+              "marker": "chassis_mount"
+            },
+            {
+              "id": "RL.shock_bottom",
+              "label": "RL shock bottom",
+              "role": "rl_spring_damper",
+              "marker": "suspension_mount"
+            },
+            {
+              "id": "RL.trailing_ball",
+              "label": "RL trailing ball",
+              "role": "rl_trailing_arm",
+              "marker": "chassis_ball"
+            },
+            {
+              "id": "RL.carrier_axis_a",
+              "label": "RL carrier axis a",
+              "role": "rl_trailing_arm",
+              "marker": "carrier_axis_a"
+            },
+            {
+              "id": "RL.carrier_axis_b",
+              "label": "RL carrier axis b",
+              "role": "rl_trailing_arm",
+              "marker": "carrier_axis_b"
+            },
+            {
+              "id": "RL.radius_upper_inner",
+              "label": "RL radius upper inner",
+              "role": "rl_upper_radius_rod",
+              "marker": "chassis_joint"
+            },
+            {
+              "id": "RL.radius_upper_outer",
+              "label": "RL radius upper outer",
+              "role": "rl_upper_radius_rod",
+              "marker": "arm_joint"
+            },
+            {
+              "id": "RL.radius_lower_inner",
+              "label": "RL radius lower inner",
+              "role": "rl_lower_radius_rod",
+              "marker": "chassis_joint"
+            },
+            {
+              "id": "RL.radius_lower_outer",
+              "label": "RL radius lower outer",
+              "role": "rl_lower_radius_rod",
+              "marker": "arm_joint"
+            },
+            {
+              "id": "RL.tie_inner",
+              "label": "RL tie inner",
+              "role": "rl_toe_link",
+              "marker": "chassis_joint"
+            },
+            {
+              "id": "RL.tie_outer",
+              "label": "RL tie outer",
+              "role": "rl_toe_link",
+              "marker": "upright_joint"
+            },
+            {
+              "id": "RR.hub",
+              "label": "RR hub",
+              "role": "rr_wheel",
+              "marker": "hub_center"
+            },
+            {
+              "id": "RR.hub_axis",
+              "label": "RR hub axis",
+              "role": "rr_wheel",
+              "marker": "wheel_axis"
+            },
+            {
+              "id": "RR.shock_top",
+              "label": "RR shock top",
+              "role": "rr_spring_damper",
+              "marker": "chassis_mount"
+            },
+            {
+              "id": "RR.shock_bottom",
+              "label": "RR shock bottom",
+              "role": "rr_spring_damper",
+              "marker": "suspension_mount"
+            },
+            {
+              "id": "RR.trailing_ball",
+              "label": "RR trailing ball",
+              "role": "rr_trailing_arm",
+              "marker": "chassis_ball"
+            },
+            {
+              "id": "RR.carrier_axis_a",
+              "label": "RR carrier axis a",
+              "role": "rr_trailing_arm",
+              "marker": "carrier_axis_a"
+            },
+            {
+              "id": "RR.carrier_axis_b",
+              "label": "RR carrier axis b",
+              "role": "rr_trailing_arm",
+              "marker": "carrier_axis_b"
+            },
+            {
+              "id": "RR.radius_upper_inner",
+              "label": "RR radius upper inner",
+              "role": "rr_upper_radius_rod",
+              "marker": "chassis_joint"
+            },
+            {
+              "id": "RR.radius_upper_outer",
+              "label": "RR radius upper outer",
+              "role": "rr_upper_radius_rod",
+              "marker": "arm_joint"
+            },
+            {
+              "id": "RR.radius_lower_inner",
+              "label": "RR radius lower inner",
+              "role": "rr_lower_radius_rod",
+              "marker": "chassis_joint"
+            },
+            {
+              "id": "RR.radius_lower_outer",
+              "label": "RR radius lower outer",
+              "role": "rr_lower_radius_rod",
+              "marker": "arm_joint"
+            },
+            {
+              "id": "RR.tie_inner",
+              "label": "RR tie inner",
+              "role": "rr_toe_link",
+              "marker": "chassis_joint"
+            },
+            {
+              "id": "RR.tie_outer",
+              "label": "RR tie outer",
+              "role": "rr_toe_link",
+              "marker": "upright_joint"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "drivetrain",
+      "label": "Drivetrain",
+      "default": "cvt_rear_front_output",
+      "options": [
+        {
+          "id": "cvt_rear_front_output",
+          "label": "CVT > rear diff + geared front output (4WD)",
+          "roles": [
+            "engine",
+            "cvt",
+            "rear_final_drive",
+            "cvt_output_shaft",
+            "shaft_carrier",
+            "front_propshaft",
+            "front_diff",
+            "fl_halfshaft",
+            "fr_halfshaft",
+            "rl_halfshaft",
+            "rr_halfshaft"
+          ],
+          "associations": [
+            {
+              "from_role": "frame",
+              "to_role": "engine",
+              "kind": "mount"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "cvt",
+              "kind": "mount"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "rear_final_drive",
+              "kind": "mount"
+            },
+            {
+              "from_role": "engine",
+              "to_role": "cvt",
+              "kind": "powertrain"
+            },
+            {
+              "from_role": "cvt",
+              "to_role": "rear_final_drive",
+              "kind": "powertrain"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "front_diff",
+              "kind": "mount"
+            },
+            {
+              "from_role": "rear_final_drive",
+              "to_role": "front_propshaft",
+              "kind": "geared_front_output"
+            },
+            {
+              "from_role": "front_propshaft",
+              "to_role": "front_diff",
+              "kind": "powertrain"
+            },
+            {
+              "from_role": "front_diff",
+              "to_role": "fl_halfshaft",
+              "kind": "drive"
+            },
+            {
+              "from_role": "fl_halfshaft",
+              "to_role": "fl_wheel",
+              "kind": "drive"
+            },
+            {
+              "from_role": "front_diff",
+              "to_role": "fr_halfshaft",
+              "kind": "drive"
+            },
+            {
+              "from_role": "fr_halfshaft",
+              "to_role": "fr_wheel",
+              "kind": "drive"
+            },
+            {
+              "from_role": "rear_final_drive",
+              "to_role": "rl_halfshaft",
+              "kind": "drive"
+            },
+            {
+              "from_role": "rl_halfshaft",
+              "to_role": "rl_wheel",
+              "kind": "drive"
+            },
+            {
+              "from_role": "rear_final_drive",
+              "to_role": "rr_halfshaft",
+              "kind": "drive"
+            },
+            {
+              "from_role": "rr_halfshaft",
+              "to_role": "rr_wheel",
+              "kind": "drive"
+            }
+          ],
+          "joint_requests": []
+        },
+        {
+          "id": "cvt_rear_drive",
+          "label": "CVT > rear differential (rear drive)",
+          "roles": [
+            "engine",
+            "cvt",
+            "rear_diff",
+            "cvt_output_shaft",
+            "shaft_carrier",
+            "rl_halfshaft",
+            "rr_halfshaft"
+          ],
+          "associations": [
+            {
+              "from_role": "frame",
+              "to_role": "engine",
+              "kind": "mount"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "cvt",
+              "kind": "mount"
+            },
+            {
+              "from_role": "frame",
+              "to_role": "rear_diff",
+              "kind": "mount"
+            },
+            {
+              "from_role": "engine",
+              "to_role": "cvt",
+              "kind": "powertrain"
+            },
+            {
+              "from_role": "cvt",
+              "to_role": "rear_diff",
+              "kind": "powertrain"
+            },
+            {
+              "from_role": "rear_diff",
+              "to_role": "rl_halfshaft",
+              "kind": "drive"
+            },
+            {
+              "from_role": "rl_halfshaft",
+              "to_role": "rl_wheel",
+              "kind": "drive"
+            },
+            {
+              "from_role": "rear_diff",
+              "to_role": "rr_halfshaft",
+              "kind": "drive"
+            },
+            {
+              "from_role": "rr_halfshaft",
+              "to_role": "rr_wheel",
+              "kind": "drive"
+            }
+          ],
+          "joint_requests": []
+        }
+      ]
+    }
+  ]
+}

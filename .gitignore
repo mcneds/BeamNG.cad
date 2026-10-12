@@ -1,0 +1,64 @@
+# IDE state and compiled .NET output
+.vs/
+.idea/
+[Bb]in/
+[Oo]bj/
+*.user
+*.suo
+*.DotSettings.user
+TestResults/
+
+# Python environments and caches; keep Python source and test fixtures.
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.coverage
+htmlcov/
+
+# Website dependencies, generated site and browser results
+node_modules/
+/website/dist/
+/website/.astro/
+/website/test-results/
+/website/playwright-report/
+.wrangler/
+
+# Local credentials and machine configuration
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+*.local.json
+
+# Local experiments, recordings and the pre-website documentation archive.
+# Publish reviewed summaries in website/src/data and website/src/content/docs,
+# and selected visual assets in website/public, instead of these originals.
+/artifacts/
+/docs/
+*.log
+/bulk-material-delivery.json
+/verification-*.json
+/tools/*.json
+
+# Imported provenance contains original workstation paths. Keep the vendored
+# source, examples and calibration fixtures: the application/tests need them.
+/dependencies/cad-calibration/upstream-snapshot.json
+/dependencies/cad-calibration/Vehicle Wizard/runtime/
+
+# Native CAD working files; curated mesh fixtures (.off/.dae/.jbeam) stay in Git.
+*.[sS][lL][dD][pP][rR][tT]
+*.[sS][lL][dD][aA][sS][mM]
+*.[sS][lL][dD][dD][rR][wW]
+*.beamng-project.json
+
+# OS metadata
+.DS_Store
+Thumbs.db
+Desktop.ini

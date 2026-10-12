@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="280" viewBox="0 0 1000 280" role="img" aria-labelledby="title desc">
+<title id="title">CAD to physical model to vehicle package</title><desc id="desc">Three separate layers connected by export, generation and packaging.</desc>
+<rect width="1000" height="280" rx="16" fill="#102238"/>
+<g fill="none" stroke="#75baff" stroke-width="2.5" stroke-linejoin="round">
+<path d="M64 150 96 61 228 83 247 158Z M64 150 228 83M96 61 247 158M92 142 110 94 210 108 224 147"/>
+<path d="M390 150 425 62 556 84 576 158Z M390 150 556 84M425 62 576 158M425 62 475 148 556 84"/>
+<path d="M734 78 803 51 883 81 814 111Z M734 78V149L814 181 883 149V81M814 111V181M766 66 846 97"/>
+<path d="M290 117H347M337 108 347 117 337 126M622 117H679M669 108 679 117 669 126"/>
+</g><g fill="#d6ebff"><circle cx="390" cy="150" r="5"/><circle cx="425" cy="62" r="5"/><circle cx="556" cy="84" r="5"/><circle cx="576" cy="158" r="5"/><circle cx="475" cy="148" r="5"/></g>
+<g font-family="system-ui, sans-serif" text-anchor="middle"><g fill="#fff" font-size="22" font-weight="600"><text x="155" y="217">SolidWorks CAD</text><text x="484" y="217">Physical model</text><text x="810" y="217">Vehicle package</text></g><g fill="#b2c8df" font-size="15"><text x="155" y="248">Bodies · materials · mates</text><text x="484" y="248">Nodes · constraints · mass</text><text x="810" y="248">Physics + bound appearance</text></g></g>
+</svg>

@@ -1,0 +1,20 @@
+{
+  "_note": "Synthetic schema example to merge into a reviewed vehicle_template v1 definition. These component IDs and BeamNG-metre coordinates are not the user's CAD. Retain the rest of that definition, including every housing's fixed_mounts.",
+  "fixed_mounts": {
+    "bearing_a": [[0.04, 0.95, 0.37], [0.16, 0.95, 0.37], [0.10, 1.01, 0.37]]
+  },
+  "shaft_chains": {
+    "front_drive": {
+      "role": "front_propshaft",
+      "joints": [
+        {"position": [0.0, 1.78, 0.34], "parent_component": "rear_final_drive"},
+        {"position": [0.1, 0.95, 0.42], "parent_component": "bearing_a"},
+        {"position": [0.0, 0.12, 0.34], "parent_component": "front_diff"}
+      ],
+      "segments": [
+        {"component": "rear_section", "plunge_m": 0.0},
+        {"component": "front_section", "plunge_m": 0.02}
+      ]
+    }
+  }
+}

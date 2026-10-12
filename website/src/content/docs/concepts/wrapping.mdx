@@ -1,0 +1,39 @@
+---
+title: Alpha wrapping and frame graph generation
+description: Explore real CGAL parameter sweeps on the Mochi CAD frame, then follow the pruning grid, projection and beam graph.
+sidebar:
+  order: 2
+---
+
+import WrapExplorer from '../../../components/explainers/WrapExplorer.astro';
+
+A tube frame has many openings. To build an outer shell, the generator first needs a closed volume that distinguishes outside space from the space enclosed by the frame. CGAL alpha wrapping supplies that **pruning proxy**.
+
+<WrapExplorer />
+
+## What alpha and offset change
+
+**Alpha** controls which openings the wrap can enter. A larger alpha spans more small gaps; a smaller alpha follows more detail. The add-in exposes a divisor: `alpha = frame bounding-box diagonal / ProxyDivisor`. Increasing the divisor therefore decreases alpha.
+
+**Offset** keeps the wrap away from the source surface. Here `offset = alpha / ProxyOffsetRatio`. Increasing that ratio brings the proxy closer to the CAD and usually increases its triangle count. Changing the alpha divisor also changes the absolute offset unless you compensate with the ratio.
+
+CGAL starts with an enclosing Delaunay triangulation and traverses from the outside. It removes eligible tetrahedra while respecting the input and offset surface, refining where needed. The remaining boundary is a closed triangular envelope. The explorer shows the exact resulting envelope; it does not invent an animation of CGAL's internal traversal. See [CGAL's algorithm description](https://doc.cgal.org/latest/Alpha_wrap_3/index.html).
+
+## From proxy to hull
+
+1. **Classify grid cells.** Mark cells that intersect the proxy. Flood-fill empty cells from the outside. Keep the intersecting cells and enclosed empty cells.
+2. **Extract the boundary.** Faces between retained and removed cells form a coarse surface. Grid dimensions determine its available vertices.
+3. **Project to the original frame.** Blender moves those vertices to the original CAD triangles, with the requested projection offset. This is a separate offset from CGAL's proxy offset.
+4. **Apply symmetry and weld.** Symmetry, when enabled, mirrors one source half. Welding combines nearby projected vertices. Inspect small corners and thin faces after changing either setting.
+
+The proxy's triangle count is not the final node count. Compare **CGAL proxy** and **Weld** while changing the offset ratio: a denser proxy can still produce almost the same coarse hull.
+
+## From hull to graph
+
+The shell generator triangulates the hull, puts nodes at its vertices, and adds beams along the surface edges. It then constructs an internal cage and attaches shell nodes to it. In **Structural graph**, blue marks shell connections and orange marks internal supports.
+
+The generator checks the rigidity matrix for extra internal motions. A free three-dimensional rigid graph has six whole-body motions and rank `3N − 6`. Passing that check establishes geometric rigidity, not the correct material response.
+
+**Local bracing** adds tetrahedral and nearest-node connections before fitting. Mounting supports must also be inserted before calibration. The selected model has no vehicle mounting patches, so those are not shown in this dataset.
+
+Continue to [Frame calibration](/concepts/calibration/) to see how masses and spring coefficients are fitted while holding this graph fixed.

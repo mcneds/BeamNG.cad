@@ -1,0 +1,42 @@
+---
+title: From CAD to BeamNG.
+description: Prepare your SolidWorks assembly, understand the generated physics, and verify every step.
+template: splash
+hero:
+  tagline: A practical handbook for turning SolidWorks assemblies into reviewed BeamNG structures and vehicles.
+  actions:
+    - text: Get started
+      link: /start/overview/
+      icon: right-arrow
+    - text: How the pipeline works
+      link: /concepts/pipeline/
+      variant: secondary
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+## Build understanding alongside the vehicle
+
+Start with real CAD ownership and physical inputs. Review the generated model, then measure its behaviour in BeamNG. This handbook covers the workflow and the reasoning behind it.
+
+<CardGrid>
+  <LinkCard title="Your first CAD vehicle" description="Go from a saved assembly to a reviewed inventory, physical package and first native checks." href="/start/first-vehicle/" />
+  <LinkCard title="Prepare a frame" description="Select bodies, inspect the hull, approve fixtures and calibrate against CAD-derived targets." href="/guides/frame/" />
+  <LinkCard title="Change the appearance" description="Bind new CAD meshes to existing physics and understand what an appearance revision preserves." href="/guides/appearance/" />
+  <LinkCard title="Work on the pipeline" description="Explore the architecture, source layout, numerical models and contributor test workflow." href="/contributors/development/" />
+</CardGrid>
+
+## Three layers. Explicit connections.
+
+![Pipeline: SolidWorks CAD supplies bodies, materials and mates; the physical model supplies nodes, constraints and mass; the package combines physics with independently bound appearance meshes.](/assets/pipeline.svg)
+
+CAD observations, the physical graph and visible meshes have different jobs. Keeping them separate makes changes traceable and helps you diagnose the right layer.
+
+## Know what a result proves
+
+Generating a package, completing a recording and qualifying a vehicle are separate outcomes. The current project includes supported workflows, experimental settings and provisional physical models. [Read the capability boundaries](/start/capabilities/) before applying example values to real hardware.
+
+<CardGrid>
+  <LinkCard title="Verification explained" description="Choose frame screening, full vehicle acceptance or attachment tests, and interpret their receipts." href="/guides/verification/" />
+  <LinkCard title="Selected milestones" description="Four short case studies showing how evidence changed the implementation—and what remained unresolved." href="/milestones/overview/" />
+</CardGrid>

@@ -1,0 +1,55 @@
+---
+title: "The CAD-to-JBeam pipeline"
+description: "The CAD-to-JBeam pipeline — beamng.cad documentation."
+sidebar:
+  order: 1
+---
+
+import PipelineExplorer from '../../../components/explainers/PipelineExplorer.astro';
+
+The pipeline preserves the distinction between source observations, numerical representations and measured simulation results.
+
+## Follow one generation
+
+<PipelineExplorer />
+
+```text
+Saved SolidWorks assembly
+    ↓ selections + materials + native references
+Preparation / project companions
+    ↓ fresh export, ownership and input checks
+Geometry snapshot + reviewed joint/mount definition
+    ↓ hull generation + fixture approval
+Calibrated frame + component/mechanism graphs
+    ↓ assembly, numerical conditioning and provenance checks
+Vehicle package + manifest
+    ↓ independent native recordings
+Verification receipts → reviewed installation
+```
+
+Each arrow produces artifacts; it is not just an in-memory UI state. [Files and receipts](/reference/files/) explains what to keep.
+
+## CAD intake
+
+The C# add-in captures native geometry and persistent identities on the SolidWorks thread. Assembly configuration and instance placement matter: two uses of the same part are different owners, even when they share a source file.
+
+External workers receive exported snapshots, not arbitrary access to your current CAD selection. Changing CAD after preparation requires a new capture.
+
+## Geometry and physical representation
+
+The frame uses a wrapped shell graph with structural supports and reviewed fixtures. An independent tubular-member reference supplies calibration targets. Panels, compact solids and mechanisms use different representations; a triangle mesh alone cannot determine which physical model is appropriate.
+
+Mass observations, material properties, joint freedoms and hardpoints remain explicit inputs. Numerical conditioning controls discrete stiffness/damping relative to the available mass and timestep. It does not manufacture missing hardware data.
+
+## Packaging and iteration
+
+The package records hashes of source geometry, material inputs, templates, calibration and runtime code. Physics regeneration makes a new physical model. Appearance packaging changes mesh bindings while requiring an unchanged physical snapshot.
+
+Verification checks the actual compiled native vehicle as well as the exported files. A complete recording can still fail measurement criteria. Installation copies a reviewed package; it does not itself run acceptance.
+
+## Read next
+
+- [Coordinates and CAD mass](/concepts/geometry/)
+- [Frame calibration](/concepts/calibration/)
+- [Mechanisms and mass allocation](/concepts/mechanisms/)
+- [Verification and provenance](/concepts/verification/)

@@ -1,0 +1,45 @@
+---
+title: "Coordinates, identity and CAD mass"
+description: "How selection snapshots preserve assembly geometry, persistent identity and physical observations."
+sidebar:
+  order: 2
+---
+
+## Reference illustrations
+
+
+`publish-reference-skeleton.py` (local source: `tools/publish-reference-skeleton.py`) reads the
+two tested manifests and verifies each source DAE hash before extracting its
+positions and triangle edges. It welds positions to micrometre precision for
+display, removes coplanar tessellation diagonals, and keeps creases and principal
+view silhouette edges. These are visible CAD outlines, not structural helper
+beams or collision triangles. Original manifest and mesh hashes accompany the
+bundled assets; there is no dependency on the old test folders at runtime.
+
+Catalog hardpoint names map explicitly to the template's suspension declarations,
+fixed mounts and shaft joints. A `hub_axis` is a second point relative to `hub`
+in this schema, not a direction vector. Unspecified housing axes remain missing.
+`ReferenceSkeleton` (local source: `beamng.cad/UI/ReferenceSkeleton.cs`) projects the illustration
+with an orbitable orthographic camera, draws the chosen part last for visibility,
+and overlays the requested markers and labels. The transparent wire illustration
+does not perform occlusion or physics simulation. Its controls have no CAD or
+project-write boundary, so reference browsing cannot apply example geometry.
+
+## Selection, coordinates and material intake
+
+SelectionNormalizer (local source: `beamng.cad/Preparation/SelectionNormalizer.cs`) resolves
+component instances and persistent body references, deduplicates overlapping
+selections, and rejects stale or ambiguous references. A selected face resolves
+to its body. Whole-component expansion is explicit. Assembly transforms apply
+to each instance before converting SolidWorks `(x,y,z)` to BeamNG `(x,-z,y)`.
+Metres and the assembly origin are preserved; the conversion occurs once.
+
+The native material snapshot reads body assignments with part-level fallback.
+Solid mass comes from SolidWorks. Closed-mesh volume integrals supply COM and
+inertia, scaled to the native mass, for older exports. New native-property exports
+carry the body's unit-density inertia and assembly transform separately from its
+display tessellation. Those exact CAD moments take precedence, so a coarse visual
+mesh does not change mass or inertia. Surface bodies use the exact triangle lamina
+moments plus symmetric thickness inertia: mass is CAD area × thickness × density.
+The tessellated surface area must agree with CAD within 1%. Combining bodies uses
+the parallel-axis theorem. See component geometry (local source: `beamng.cad/FramePipeline/components.py`).

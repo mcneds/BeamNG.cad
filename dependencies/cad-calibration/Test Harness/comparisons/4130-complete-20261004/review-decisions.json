@@ -1,0 +1,7 @@
+{
+  "cases": {
+    "4130-annealed": false,
+    "4130-normalized": false
+  },
+  "notes": "FAILED visual separation. Inspected final-front.png for 20261004T125555-mesh-cut-597f9b (35% plane) and final-oblique.png for 20261004T125634-mesh-cut-3fb88f (65% plane), after the corrected spawn datum and outward separating load. Both graph cuts produce two disconnected components, but long, visibly stretched strips still bridge the gap, particularly the diagonal tubes in the 65% oblique view. Enabling mesh breaking on all 201 existing shell edges shared by actual CAD locator groups did not eliminate this defect. All 105 CAD meshes load without engine flexbody errors. Natural progressive-load views showed no gross mesh loss; their first failed edges are internal numerical supports with mesh breaking intentionally disabled, and they did not separate the graph. The two condition cases have identical geometry, node groups and mesh-breaking flags, so the failed controlled-cut association evidence applies to both. This is a limitation of the tested binding, not proof that every possible binding on this graph must fail. Neither candidate is qualified for realistic visual fracture or physical ductile rupture. Original and superseded recordings remain archived."
+}

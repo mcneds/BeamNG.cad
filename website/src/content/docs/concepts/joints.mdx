@@ -1,0 +1,87 @@
+---
+title: "From CAD mates to constraints"
+description: "How native constraints, rack actuators and attachment contracts become a simulation graph."
+sidebar:
+  order: 5
+---
+
+import MateExplorer from '../../../components/explainers/MateExplorer.astro';
+
+The compiler combines the constraints between each pair of owned moving members, determines which relative motions remain, and proposes a supported joint.
+
+<MateExplorer />
+
+**How the conversion works.** `NativeMateScanner.cs` captures persistent native
+geometry and assembly-space coordinates on the CAD thread. `joint_authoring.py`
+builds a relative six-DOF constraint matrix from point/axis/plane geometry and
+uses its nullspace plus geometric checks to propose supported motion. Mate
+signatures preserve approval only while the captured constraints stay unchanged.
+Role ownership and `joint_contract.py` reject wrong-group points, off-axis hinge
+pairs, incompatible motion and unused physical constraints. `authored_shafts.py`
+walks a connected, unbranched chain of supported joints. No mesh bound or source
+body order supplies a missing hardpoint.
+
+`translating_rack.py` fits the two members' positive masses independently to
+their CAD mass/COM/inertia. Three parallel capped rails constrain rack rotation
+and transverse movement; opposed steering hydros translate it, and both tie rods
+keep fixed lengths. Their springs share the assembled numerical step budget.
+The implementation derives the hydro's control sign by solving both front linkages
+with a small positive and negative rack displacement. Positive steering input
+must turn both wheels right in vehicle coordinates. This handles racks ahead of
+or behind the axle and either axis direction; contradictory wheel responses stop
+generation. The sign and toe gains are recorded in the steering contract.
+The implementation converts physical rack speed to relative hydro rate using the
+actuator's rest length, preserving speed when that numerical length changes.
+See [BeamNG's hydro controls](https://documentation.beamng.com/modding/vehicle/sections/hydros/).
+The implementation applies both actuators at one midpoint node between the rack
+endpoints, with opposite housing supports and clearance for the full stroke.
+The supports share the former total requested holding stiffness and damping;
+they target the same physical translation with opposite length changes. A
+single-sided numerical support introduced transverse-to-steering coupling even
+in a symmetric CAD rack. A regression independently solves the exported static
+stiffness and requires symmetric transverse loads to leave the rack center's
+axial position unchanged. All support nodes receive redistributed CAD member
+mass, and the assembled stiffness-and-damping step limit still applies. The
+three guides use this assembled budget without an additional local frequency
+cap. Native road-load verification remains in progress.
+Compact rigid housings double mounting-node priority relative to their existing
+CAD mass allocation, then refit the same CAD mass, COM and inertia. Other nodes
+retain their relative allocation priority, including torque reaction supports.
+All nodes remain positive and the achieved allocation is reported. This is a
+numerical support policy; it neither adds a fixed 2 kg to each mount nor
+calibrates the strength of a real fastener. Normal constraints share the full
+assembled step budget; deformable collision cells retain an additional local cap.
+The motion reference predicts the wheel linkage using the recorded native hydro
+target, so a drifting rack cannot validate itself by supplying its own measured
+position as the target. Every declared actuator must compile once and record
+the same physical target; missing or conflicting targets reject the recording.
+Earlier single-actuator isolated sweeps at ±10/±40 mm passed with peak
+tracking errors 0.11/0.43 mm. Those recordings do not qualify the opposed-support
+revision. Full-vehicle road-load acceptance of this new rack
+still has to run on each generated vehicle.
+
+`attachment_contract.py` creates three short directional connector beams per
+breakable fastener, with stable release groups scoped to the child. Permanent
+frame restraints distribute force through the calibrated frame supports. Each panel retains its
+own nodes, triangles and flexbody binding after release. The boundary audit
+rejects undeclared beams, torsionbars, triangles or rails that could keep a panel
+attached, and rejects a skin bound to another part's nodes. The harness records
+both deliberate cuts and force-ramp failures; independent mounts retain the
+panel until their own connectors fail. Named linked sets release together.
+Numerical stability caps and CAD mass fitting do not calibrate hardware rupture.
+
+**Supported scope.** Native point, concentric/locked-concentric and compound hinge
+fixtures were checked in SolidWorks, including reopen identity. Companion split,
+source refresh and body reclassification were checked on owned native geometry.
+The candidate also passed a fresh 36-group companion lifecycle with ten moving
+members, save/reopen reference checks and clean owned SolidWorks shutdown. Member
+splitting copies replacement parts directly into the final revision, avoiding
+temporary assembly windows. Body/reference lookup caches last only for one
+revision update, so a later source change cannot reuse stale CAD references.
+The current conversion does not run a native CAD finite-motion sweep and does
+not convert generic mate travel/angle limits or arbitrary linkages into physical
+stops. Those constraints are rejected rather than discarded; use the supported
+template's explicit travel/coilover stop settings and mark a CAD-only limit
+positioning-only after review. Rack checks used a fixed housing and analytic
+moments; two authored vehicle graphs passed offline mass/release checks. New
+vehicles remain diagnostic until their own live verification passes.

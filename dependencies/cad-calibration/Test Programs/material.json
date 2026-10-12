@@ -1,0 +1,20 @@
+{
+  "name": "Structural steel sheet",
+  "geometryMode": "shell",
+  "thickness": 0.003,
+  "density": 7850.0,
+  "bulkModulus": 160000000000.0,
+  "shearModulus": 79000000000.0,
+  "yieldStrength": 250000000.0,
+  "ultimateStrength": 450000000.0,
+  "fractureStrain": 0.2,
+  "damageProjection": "physicalForce",
+  "dampingRatio": 0.02,
+  "dampingReferenceHz": 25.0,
+  "maximumLocalFrequencyHz": 350.0,
+  "minimumNodeWeight": 1.0,
+  "massFitIterations": 5000,
+  "stiffnessFitIterations": 5000,
+  "massRegularization": 1e-8,
+  "stiffnessRegularization": 1e-8
+}

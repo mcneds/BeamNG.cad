@@ -1,0 +1,12 @@
+{
+  "scenarios": ["idle", "flex", "torsion"],
+  "repeats": 1,
+  "candidates": [
+    {"name": "legacy-z002", "projection": "legacy", "material": {"dampingRatio": 0.02}},
+    {"name": "legacy-z004", "projection": "legacy", "material": {"dampingRatio": 0.04}},
+    {"name": "modal_global-z002", "projection": "modal_global", "material": {"dampingRatio": 0.02}},
+    {"name": "modal_global-z004", "projection": "modal_global", "material": {"dampingRatio": 0.04}},
+    {"name": "local_capped-z002", "projection": "local_capped", "material": {"dampingRatio": 0.02}},
+    {"name": "local_capped-z004", "projection": "local_capped", "material": {"dampingRatio": 0.04}}
+  ]
+}

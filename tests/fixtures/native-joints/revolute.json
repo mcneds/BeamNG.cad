@@ -1,0 +1,122 @@
+{
+  "expected_kind": "revolute",
+  "native_snapshot_sha256": "1cc2aafc65e62f25d64f6d2937a261b2a645ad39f031b1f326d7bfe61d095bb9",
+  "source": "Owned SolidWorks Test-NativeJoints.ps1 fixture, 2026-10-08; persistent references hashed for compact regression input",
+  "workspace": {
+    "Bindings": [],
+    "Joints": [],
+    "Mates": [
+      {
+        "Entities": [
+          {
+            "Axis": [
+              0,
+              1,
+              0
+            ],
+            "ComponentId": "owner0",
+            "ComponentReference": "eb0609909799b2569aa77b55434ab69285f761084d65b3ffee6cb79a02174910",
+            "Kind": "cylinder",
+            "MemberId": null,
+            "Point": [
+              0,
+              -0.1,
+              0
+            ],
+            "Radius": 0.03,
+            "Reference": "da869ca3794f9577236ef8ae057ac450a9c91fbbaf739c352be62ed98fb33c1f"
+          },
+          {
+            "Axis": [
+              0,
+              1,
+              0
+            ],
+            "ComponentId": "owner1",
+            "ComponentReference": "a30d84830a4d0943d10132fea645afd9d97b058a5e5d91baf2c99f8241c62229",
+            "Kind": "cylinder",
+            "MemberId": null,
+            "Point": [
+              0,
+              -0.1,
+              0
+            ],
+            "Radius": 0.03,
+            "Reference": "2ab9bfe519799128b384e7ffd5c355adb518ca5b86414ded4f4e008e572d3e41"
+          }
+        ],
+        "HasLimits": false,
+        "Id": "698f4ff53cd191456d1faa56ed8f11809735c4570e864eaf807e1efe14bdf4cb",
+        "Issue": null,
+        "LockRotation": false,
+        "Maximum": 0,
+        "Minimum": 0,
+        "Name": "Concentric1",
+        "PositioningOnly": false,
+        "Reference": "249c026d7d4b7835c726e299cb5e75eb0259166eedd5e8274c9096a66bfaddd2",
+        "Suppressed": false,
+        "Type": "CONCENTRIC",
+        "Value": 0
+      },
+      {
+        "Entities": [
+          {
+            "Axis": [
+              0,
+              1,
+              0
+            ],
+            "ComponentId": "owner0",
+            "ComponentReference": "eb0609909799b2569aa77b55434ab69285f761084d65b3ffee6cb79a02174910",
+            "Kind": "plane",
+            "MemberId": null,
+            "Point": [
+              0,
+              0.1,
+              0
+            ],
+            "Radius": 0,
+            "Reference": "28c50000596a64b3a23839925792ca5cee770c37757b0cfab3c0b60af613a6a5"
+          },
+          {
+            "Axis": [
+              0,
+              1,
+              0
+            ],
+            "ComponentId": "owner1",
+            "ComponentReference": "a30d84830a4d0943d10132fea645afd9d97b058a5e5d91baf2c99f8241c62229",
+            "Kind": "plane",
+            "MemberId": null,
+            "Point": [
+              0,
+              0.1,
+              0
+            ],
+            "Radius": 0,
+            "Reference": "1f314b70aa28bff2accf59ac81d709f353d3567737795b3a85e351ba52f4daf3"
+          }
+        ],
+        "HasLimits": false,
+        "Id": "b17d113d2ebb557c15f13cbc5f36f7e7bb746f969dc8ca66e198a344166b858e",
+        "Issue": null,
+        "LockRotation": false,
+        "Maximum": 0,
+        "Minimum": 0,
+        "Name": "Coincident1",
+        "PositioningOnly": false,
+        "Reference": "bc436c6cd05a5d58daf4955443fac0eefd61acbb4559ebae4f0ccc047f564a9a",
+        "Suppressed": false,
+        "Type": "COINCIDENT",
+        "Value": 0
+      }
+    ],
+    "Members": [],
+    "Mode": "legacy",
+    "Parameters": [],
+    "ScanConfiguration": null,
+    "ScanDocument": null,
+    "ScanHash": null,
+    "ScanStamp": 108
+  }
+}

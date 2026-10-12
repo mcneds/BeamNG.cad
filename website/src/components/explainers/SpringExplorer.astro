@@ -1,0 +1,66 @@
+---
+import Explainer from './Explainer.astro';
+import { springSetup } from '../../lib/explainers';
+const baseline=springSetup(80,1.8,0.7);
+const ymax=Math.ceil((baseline.preload+baseline.stiffness*0.06)*1.1/500)*500;
+const path=`M80,${270-baseline.preload/ymax*225} L600,${270-(baseline.preload+baseline.stiffness*.06)/ymax*225}`;
+---
+<Explainer title="See what changes the automatic spring estimate" kind="Interactive calculation · illustrative inputs">
+  <cad-spring-demo>
+    <svg class="demo-svg" viewBox="0 0 640 330" role="img" aria-label="Spring force versus shock compression, including static preload">
+      <path class="grid" d="M80 45H600M80 157.5H600M80 270H600"/>
+      <path class="axis" d="M80 35V270H610"/>
+      <text x="80" y="23">Shock force (N)</text>
+      <text data-top-tick x="68" y="50" text-anchor="end">{ymax}</text>
+      <text data-mid-tick x="68" y="162" text-anchor="end">{ymax/2}</text><text x="68" y="275" text-anchor="end">0</text>
+      <text x="80" y="295" text-anchor="middle">0</text><text x="340" y="295" text-anchor="middle">30</text><text x="600" y="295" text-anchor="middle">60</text>
+      <text x="340" y="323" text-anchor="middle">Shock compression from reference pose (mm)</text>
+      <path class="ghost" data-baseline d={path}/><path class="blue" data-force d={path}/>
+      <circle data-force-point cx="340" cy={270-(baseline.preload+baseline.stiffness*.03)/ymax*225} r="5" fill="var(--demo-orange)"/>
+    </svg>
+    <div class="demo-legend"><span>Selected inputs</span><span class="legend-ghost">Starting inputs (80 kg, 1.8 Hz, r = 0.70)</span></div>
+    <div class="demo-sliders">
+      <label class="demo-slider">Sprung corner mass <output data-mass-label>80 kg</output><input data-mass type="range" min="20" max="150" step="1" value="80" aria-label="Sprung corner mass" disabled/></label>
+      <label class="demo-slider">Target frequency <output data-frequency-label>1.8 Hz</output><input data-frequency type="range" min="1" max="3" step="0.1" value="1.8" aria-label="Target frequency" disabled/></label>
+      <label class="demo-slider">Motion ratio (shock / wheel travel) <output data-ratio-label>0.70</output><input data-ratio type="range" min="0.4" max="1" step="0.01" value="0.7" aria-label="Motion ratio" disabled/></label>
+    </div>
+    <div class="demo-readouts" aria-live="polite">
+      <div><span>Spring rate</span><output data-rate>{(baseline.stiffness/1000).toFixed(1)} N/mm</output></div>
+      <div><span>Damper coefficient</span><output data-damping>{baseline.damping.toFixed(0)} N·s/m</output></div>
+      <div><span>Static preload</span><output data-preload>{baseline.preload.toFixed(0)} N</output></div>
+    </div>
+    <p class="demo-note" data-force-label>At 30 mm compression: {(baseline.preload+baseline.stiffness*.03).toFixed(0)} N total spring force.</p>
+    <div class="demo-controls"><button data-reset type="button" disabled>Reset inputs</button></div>
+    <noscript>Starting values and the static curve remain visible. Enable JavaScript to change the inputs.</noscript>
+  </cad-spring-demo>
+  <span slot="caption">Calculated from the equations above, with damping ratio ζ = 0.30 and g = 9.81 m/s². This is a single-rate static spring model; it omits damper force, travel stops, tire compliance and dynamic load transfer. Values are teaching inputs, not recommended hardware settings. The vertical axis rescales to fit both curves.</span>
+</Explainer>
+<script>
+  import { springSetup } from '../../lib/explainers';
+  class CadSpringDemo extends HTMLElement {
+    private events?:AbortController;
+    connectedCallback(){
+      this.events?.abort();this.events=new AbortController();const signal=this.events.signal;
+      const mass=this.querySelector<HTMLInputElement>('[data-mass]')!,frequency=this.querySelector<HTMLInputElement>('[data-frequency]')!,ratio=this.querySelector<HTMLInputElement>('[data-ratio]')!;
+      const baseline=springSetup(80,1.8,.7);
+      const write=(selector:string,text:string)=>{this.querySelector(selector)!.textContent=text;};
+      const update=()=>{
+        const m=Number(mass.value),f=Number(frequency.value),r=Number(ratio.value),current=springSetup(m,f,r);
+        const max=Math.ceil(Math.max(current.preload+current.stiffness*.06,baseline.preload+baseline.stiffness*.06)*1.1/500)*500;
+        const curve=(s:typeof current)=>`M80,${270-s.preload/max*225} L600,${270-(s.preload+s.stiffness*.06)/max*225}`;
+        this.querySelector('[data-force]')!.setAttribute('d',curve(current));this.querySelector('[data-baseline]')!.setAttribute('d',curve(baseline));
+        this.querySelector('[data-force-point]')!.setAttribute('cy',String(270-(current.preload+current.stiffness*.03)/max*225));
+        write('[data-top-tick]',String(max));write('[data-mid-tick]',String(max/2));
+        write('[data-mass-label]',m+' kg');write('[data-frequency-label]',f.toFixed(1)+' Hz');write('[data-ratio-label]',r.toFixed(2));
+        write('[data-rate]',(current.stiffness/1000).toFixed(1)+' N/mm');write('[data-damping]',current.damping.toFixed(0)+' N·s/m');write('[data-preload]',current.preload.toFixed(0)+' N');
+        write('[data-force-label]',`At 30 mm compression: ${(current.preload+current.stiffness*.03).toFixed(0)} N total spring force.`);
+        mass.setAttribute('aria-valuetext',m+' kilograms');frequency.setAttribute('aria-valuetext',f.toFixed(1)+' hertz');ratio.setAttribute('aria-valuetext',r.toFixed(2));
+      };
+      [mass,frequency,ratio].forEach(slider=>{slider.disabled=false;slider.addEventListener('input',update,{signal});});
+      const reset=this.querySelector<HTMLButtonElement>('[data-reset]')!;reset.disabled=false;
+      reset.addEventListener('click',()=>{mass.value='80';frequency.value='1.8';ratio.value='.7';update();},{signal});update();
+    }
+    disconnectedCallback(){this.events?.abort();}
+  }
+  if(!customElements.get('cad-spring-demo'))customElements.define('cad-spring-demo',CadSpringDemo);
+</script>

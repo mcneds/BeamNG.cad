@@ -1,0 +1,175 @@
+{
+  "version": 1,
+  "sourceLabel": "Mochi Frame V3 \u00b7 60 CAD bodies from Mochi-Full-Promotions-export",
+  "sourceSha256": "4830fe32acbf9f3598f042419eec0ce361c889f44c57d022f4d736c7d4351c20",
+  "sourceUnits": "metres",
+  "diagonalM": 2.714919446416348,
+  "bounds": [
+    [
+      -0.4655631,
+      0.4655631
+    ],
+    [
+      -0.1882021,
+      1.973834
+    ],
+    [
+      -0.015875,
+      1.336675
+    ]
+  ],
+  "grid": [
+    3,
+    5,
+    7
+  ],
+  "shrinkOffsetM": 0.01,
+  "weldDistanceM": 0.15,
+  "symmetry": false,
+  "sourceTriangles": 43963,
+  "sources": {
+    "beamng.cad/FramePipeline/generation/AlphaWrap.py": "6632fcd62d82e2c482e6817ecea5fac4c43cc18f63ab33b7a7eb076bf03e562e",
+    "tools/docs-wrap-blender.py": "3d97f7990dcb2790d89b95114a21ae3f759ab471cc67c93de3e3a084d44f1a1e",
+    "tools/generate-docs-wrap.py": "245036ff8dc2559ffba47e09ef09afd3e75a575bc822d02de7668c32eb08a18d",
+    "beamng.cad/FramePipeline/generation/JBeamShellGenerator.py": "1e198381d019ec1e55712e34fa917441c6e2d87c99cf7ea35ba21997ddae58d9",
+    "dependencies/cad-calibration/Test Harness/frame_harness/bracing.py": "62b4759ea2f96cb1a6f3e711c9f8cdc01f61478766b96f065d02d214b65b1243",
+    "tools/generate-docs-graph.py": "6f4d7708cbf8fef4ab41aec3e1c2420c593babf5f2e7502963e27e30d8ddb12e"
+  },
+  "cases": [
+    {
+      "id": "a4-o20",
+      "divisor": 4,
+      "offsetRatio": 20,
+      "alphaM": 0.678729861604087,
+      "offsetM": 0.03393649308020435,
+      "proxyVertices": 70,
+      "proxyTriangles": 136,
+      "gridVertices": 88,
+      "hullVertices": 64,
+      "hullTriangles": 126,
+      "sha256": "67f04cab4b8de42e63a3211b346df8f325a994225ab95574dcb110275d257ff3",
+      "graphNodes": 71,
+      "graphBeams": 801
+    },
+    {
+      "id": "a4-o100",
+      "divisor": 4,
+      "offsetRatio": 100,
+      "alphaM": 0.678729861604087,
+      "offsetM": 0.00678729861604087,
+      "proxyVertices": 179,
+      "proxyTriangles": 354,
+      "gridVertices": 88,
+      "hullVertices": 66,
+      "hullTriangles": 130,
+      "sha256": "54f547f1957177e891431da5335c8c7fa5a316fcfde08ad7fa7e4c5405bce4d5",
+      "graphNodes": 73,
+      "graphBeams": 832
+    },
+    {
+      "id": "a4-o300",
+      "divisor": 4,
+      "offsetRatio": 300,
+      "alphaM": 0.678729861604087,
+      "offsetM": 0.002262432872013623,
+      "proxyVertices": 419,
+      "proxyTriangles": 834,
+      "gridVertices": 88,
+      "hullVertices": 66,
+      "hullTriangles": 130,
+      "sha256": "83cbd6b45a7688db9842ffce4672ea7c434f61d4be484a26964cb65d36b5e8dc",
+      "graphNodes": 73,
+      "graphBeams": 830
+    },
+    {
+      "id": "a7-o20",
+      "divisor": 7,
+      "offsetRatio": 20,
+      "alphaM": 0.38784563520233545,
+      "offsetM": 0.019392281760116772,
+      "proxyVertices": 131,
+      "proxyTriangles": 262,
+      "gridVertices": 86,
+      "hullVertices": 67,
+      "hullTriangles": 132,
+      "sha256": "f629dee3529cab75bffe40d64df8927ed9bf14083f7bb56aec7317f26113fb2a",
+      "graphNodes": 74,
+      "graphBeams": 846
+    },
+    {
+      "id": "a7-o100",
+      "divisor": 7,
+      "offsetRatio": 100,
+      "alphaM": 0.38784563520233545,
+      "offsetM": 0.0038784563520233547,
+      "proxyVertices": 350,
+      "proxyTriangles": 700,
+      "gridVertices": 84,
+      "hullVertices": 66,
+      "hullTriangles": 128,
+      "sha256": "5e6128330d6d5fbfc05d8696e3824b8ae96c73a8fc03eba3e17d20e623047252",
+      "graphNodes": 73,
+      "graphBeams": 828
+    },
+    {
+      "id": "a7-o300",
+      "divisor": 7,
+      "offsetRatio": 300,
+      "alphaM": 0.38784563520233545,
+      "offsetM": 0.0012928187840077847,
+      "proxyVertices": 892,
+      "proxyTriangles": 1784,
+      "gridVertices": 84,
+      "hullVertices": 66,
+      "hullTriangles": 128,
+      "sha256": "bd6cfd383831ad1555a2c0e9610eb54be2f12b51680a0a80a481c0ee7b52db96",
+      "graphNodes": 73,
+      "graphBeams": 829
+    },
+    {
+      "id": "a12-o20",
+      "divisor": 12,
+      "offsetRatio": 20,
+      "alphaM": 0.22624328720136233,
+      "offsetM": 0.011312164360068117,
+      "proxyVertices": 383,
+      "proxyTriangles": 774,
+      "gridVertices": 88,
+      "hullVertices": 69,
+      "hullTriangles": 140,
+      "sha256": "1eb1dd19ba4755a21b43d99b685ed575b19a580282de290384bdd810217901f7",
+      "graphNodes": 76,
+      "graphBeams": 871
+    },
+    {
+      "id": "a12-o100",
+      "divisor": 12,
+      "offsetRatio": 100,
+      "alphaM": 0.22624328720136233,
+      "offsetM": 0.002262432872013623,
+      "proxyVertices": 1094,
+      "proxyTriangles": 2192,
+      "gridVertices": 88,
+      "hullVertices": 69,
+      "hullTriangles": 140,
+      "sha256": "dc8cdf6f8d826f75ab60b5ef59aa4c2b45a279ea28101cee93fc895601963ada",
+      "graphNodes": 76,
+      "graphBeams": 870
+    },
+    {
+      "id": "a12-o300",
+      "divisor": 12,
+      "offsetRatio": 300,
+      "alphaM": 0.22624328720136233,
+      "offsetM": 0.0007541442906712078,
+      "proxyVertices": 2619,
+      "proxyTriangles": 5242,
+      "gridVertices": 88,
+      "hullVertices": 69,
+      "hullTriangles": 140,
+      "sha256": "8299820ad3b9ce39c42d67470e3dc4b29ab81ab197aaf50ef7155782abf87fc0",
+      "graphNodes": 76,
+      "graphBeams": 868
+    }
+  ]
+}

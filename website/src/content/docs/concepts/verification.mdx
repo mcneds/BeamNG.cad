@@ -1,0 +1,84 @@
+---
+title: "Verification and provenance"
+description: "Understand native recording, motion comparison, repeatability and independent qualification statuses."
+sidebar:
+  order: 8
+---
+
+import EvidenceChart from '../../../components/explainers/EvidenceChart.astro';
+
+The harness exchanges JSON jobs/status and native Lua telemetry with ordinary
+BeamNG.drive. It locks and verifies ownership of a dedicated profile, owns its
+launched process, stages only changed assets, and replaces the vehicle between
+recordings. Cancellation and shutdown apply only to that owned process.
+
+Vehicle acceptance runs settle, supported drivetrain, articulation, acceleration,
+braking, reverse, left turn and right turn three times. Checks include complete
+finite telemetry, compiled mass, required controllers, wheel/device contracts,
+settling, motion and no broken beams. Generation success, recording completion
+and physical qualification remain separate statuses. Failed measurements cannot
+be accepted merely because the recorder finished.
+
+<EvidenceChart />
+
+The harness disables BeamNG's safe-spawn relocation to preserve the requested
+test position. Supported and articulation jobs measure all generated tread nodes
+throughout the recording and reject ground clearance below 0.25 m. Earlier
+supported recordings that allowed safe-spawn snapping are not valid suspended
+drivetrain evidence, even when wheel-speed checks passed.
+Articulation loads are split equally between the two axle nodes, placing the
+resultant at the wheel center. Loading only the negative-X endpoint would add
+opposite camber moments on the left and right. The final second is for settling.
+Each five-second sweep requests a 160 mm sinusoidal-squared lift from that
+corner's settled pose, with zero target velocity at both ends. This avoids
+an unintended design-height step while retaining the motion and geometry checks.
+
+For CAD templates, the motion comparator (local source: `dependencies/cad-calibration/Test Harness/frame_harness/vehicle_motion.py`)
+registers the recorded chassis nodes to the reference using a mass-weighted rigid
+fit, removing translation, roll and yaw. At each snapshot the linkage solver uses
+the measured hub height and the native steering hydro's target rest length. It
+compares camber, toe, hub path and mount positions; separate rigid fits measure arm
+and upright distortion. Joint beam length changes separate attachment stretch
+from movement of the frame support. Unreachable poses and incomplete recordings
+fail the checks. Straight-driving tests also reject uncommanded drift and yaw.
+Turn tests require more than 2 m of lateral excursion in the requested direction
+and no more than 0.5 m in the opposite direction. They use the recorded path:
+a completed circle can return to its starting line and still be a valid turn.
+For CAD templates, independently fitted chassis heading must also turn at least
+45° in the requested direction, with no reversal greater than 5°. Heading is
+unwrapped across ±180°, so another lap cannot erase the measured rotation.
+Sideways sliding cannot satisfy that heading check. Suspension and attachment
+error limits apply throughout the turn, just as in the other driving tests.
+The recorder uses BeamNG's `FILTER_AI` automation input path with a dedicated
+input source, restored after each recording. This bypasses gamepad steering
+assists without adding a steering correction. Motion telemetry version 2 records
+both requested and applied steering; straight tests require the applied value
+to remain zero. Older recordings that only captured the requested command cannot
+prove unassisted straight-line behavior and must be recorded again.
+Each run provides `motion-comparison.html`, an interactive ideal/native overlay,
+and an exportable plot. Current geometric limits are provisional screening
+tolerances, not material qualification. Graphics snapshots cannot resolve a
+high-frequency vibration spectrum, and this kinematic reference does not predict
+vehicle acceleration or tire forces.
+
+Historic synthetic passes do not qualify a new CAD vehicle. See the [selected milestones](/milestones/overview/) for examples of how evidence changed the implementation.
+
+Builds preserve hashes of geometry, material inputs, calibrated frame, template,
+generator and runtime sources. Files changed during generation or recording are
+rejected. Passing verification can compact raw logs/CSV while retaining measured
+results, hashes and images. Failures retain diagnostics. Captures use an owned
+render view; camera framing follows actual node bounds. Live camera tracking
+carries vehicle translation directly and smooths only changes relative to it,
+avoiding a speed-dependent following lag. Captures freeze physics and simulation
+time scale, frame the frozen graphics state and temporarily disable main-window
+blur and current motion blur (`PostFxMotionBlur`). Before/during/after states and
+maximum live camera center error are saved beside the image; normal completion,
+failed readback and disposal restore the prior effects and simulation state.
+The receipt records the evidence path and hash separately from generation.
+Image validation also decodes the PNG and rejects blank or corrupt readbacks.
+A successful save call or a large enough file does not establish useful visual
+evidence; even a nonblank image still needs framing and mesh review.
+Acceptance requires three independent completed recordings of each scenario;
+an ordinary failed repeat withdraws driving qualification. A passed pilot cannot
+restore it without a new complete acceptance suite. Diagnostic interventions
+are recorded separately and cannot promote or withdraw normal qualification.

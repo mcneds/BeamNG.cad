@@ -1,0 +1,5 @@
+{
+  "scenarios": ["idle", "flex"],
+  "repeats": 3,
+  "candidates": [{"name": "annealed", "calibration": "comparisons/4130-calibration/4130-annealed/calibration.json"}]
+}

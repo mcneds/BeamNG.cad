@@ -1,0 +1,11 @@
+---
+import DefaultPageTitle from '@astrojs/starlight/components/PageTitle.astro';
+import registry from '../data/doc-evidence.json';
+import { groupFor } from '../../scripts/doc-evidence.mjs';
+const slug=Astro.locals.starlightRoute.entry.id.replace(/\.mdx?$/,'');
+const group=groupFor(slug) as keyof typeof registry.groups;
+const record=registry.groups[group];
+---
+<DefaultPageTitle />
+{record&&slug!=='404'&&<p class="review-stamp" data-doc-evidence={group}>Implementation snapshot · {record.reviewed} · <a href={`/contributors/documentation/#${group}`}>Sources &amp; update notes</a></p>}
+<style>.review-stamp{font-size:.78rem;color:var(--sl-color-gray-2);margin:.5rem 0 0;}.review-stamp a{color:var(--sl-color-text-accent);}</style>
