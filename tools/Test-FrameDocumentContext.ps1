@@ -69,6 +69,10 @@ public static class FrameDocumentContextTest {
     Check((bool)Call(workspace,"Navigate","Frame")&&Get(frame,"prepared")!=null,"hardpoint editor round trip retains the prepared hull");
     Set(frame,"generation",folder);Call(workspace,"UpdateNextStep");
     Check(title.Text.Contains("Fixtures need review")&&next.Text=="Review fixtures","generated frame surfaces fixture review above the preview");
+    var authored=Get(project,"JointWorkspace");Set(authored,"Mode","legacy");Set(project,"PhysicsTemplateReceipt","fixture receipt");
+    Call(project,"Save");Call(Prop(workspace,"Session"),"Refresh");Call(workspace,"Navigate","Overview");next.PerformClick();
+    Check((string)Prop(workspace,"CurrentStage")=="Components"&&((TabControl)Find(workspace,"ComponentDetails")).SelectedTab.Text=="Appearance","imported physics opens the Appearance editor directly");
+    Set(authored,"Mode","authored");Set(project,"PhysicsTemplateReceipt",null);
    }
    var readiness=code.GetType("BeamNG.Cad.UI.VehicleReadiness").GetMethod("Evaluate");
    var jointWorkspace=Get(project,"JointWorkspace");var anchors=(IList)Get(project,"Anchors");

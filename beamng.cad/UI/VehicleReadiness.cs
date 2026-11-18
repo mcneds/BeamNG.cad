@@ -12,6 +12,7 @@ namespace BeamNG.Cad.UI
     {
         public string Title,Detail,ActionText,Stage,ComponentId;
         public bool CanGenerateFrame;
+        public bool OpenAppearances;
         public readonly List<string> MissingCad=new List<string>();
         public int MissingHardpoints;
 
@@ -20,7 +21,7 @@ namespace BeamNG.Cad.UI
             if(project==null)return new VehicleReadiness {Title="Choose a vehicle project",Detail="Open saved work or start a new project from your assembly.",Stage="Project",ActionText="Choose project"};
             var workspace=project.JointWorkspace;
             if(!string.IsNullOrWhiteSpace(project.PhysicsTemplateReceipt)&&workspace.Mode!="authored")
-                return new VehicleReadiness {Title="Using imported physics",Detail="Assign your appearances in Components. Physical regeneration is a separate operation.",Stage="Components",ActionText="Assign appearances",CanGenerateFrame=true};
+                return new VehicleReadiness {Title="Using imported physics",Detail="Assign your appearances in Components. Physical regeneration is a separate operation.",Stage="Components",ActionText="Assign appearances",CanGenerateFrame=true,OpenAppearances=true};
             var vehicle=workspace.Mode=="authored"||project.Driveline!=null||!string.IsNullOrWhiteSpace(project.TemplateDefinitionPath)||project.Components.Any(c=>!string.IsNullOrWhiteSpace(c.MvpRole)&&c.MvpRole!="frame");
             if(!vehicle)return FramePreflight(); // Preserve the calibrated frame-only route.
 

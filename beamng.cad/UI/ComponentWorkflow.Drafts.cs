@@ -80,6 +80,7 @@ namespace BeamNG.Cad.UI
             routingStage=true;try{if(page!=null)tabs.SelectedTab=page;}finally{routingStage=false;}
         }
         internal void HideDockedTaskControls(){status.Visible=false;progress.Visible=false;stop.Visible=false;}
+        internal void ShowAppearanceAssignments()=>continueTemplate();
         internal void FocusComponent(string componentId)
         {
             if(!ResolveDraft())return;

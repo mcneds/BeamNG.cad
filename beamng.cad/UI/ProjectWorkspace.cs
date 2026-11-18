@@ -217,7 +217,8 @@ namespace BeamNG.Cad.UI
                 }
                 else if(!ResolveChanges())return;
                 if(state.Stage=="Project"&&session.Project!=null&&activeEditor!=components)OpenProjectTools();
-                if(state.Stage=="Components"&&!string.IsNullOrEmpty(state.ComponentId))components.FocusComponent(state.ComponentId);
+                if(state.OpenAppearances)components.ShowAppearanceAssignments();
+                else if(state.Stage=="Components"&&!string.IsNullOrEmpty(state.ComponentId))components.FocusComponent(state.ComponentId);
                 if(state.Stage=="Frame")frame?.OpenNextFrameAction();
             }
             catch(Exception error) {task.Text=error.Message;MessageBox.Show(this,error.Message,"beamng.cad",MessageBoxButtons.OK,MessageBoxIcon.Information);}
