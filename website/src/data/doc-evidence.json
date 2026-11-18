@@ -354,14 +354,14 @@
         "beamng.cad/UI/PreviewShaders/volume.comp": "bfb3f6d66d6c4fab50b1bc228c0211a36b2fb42745027d3cdc264822b9e2ee6a",
         "beamng.cad/UI/PreviewUiThread.cs": "862940e028c558ebf27514b4ad77c42882dcb025588cb26d0d20e2445c952798",
         "beamng.cad/UI/ProjectSession.cs": "8cc6363c2089a63c7e5ef8f3fffa005f101ef0636bb8a84cbf83dda7ce147201",
-        "beamng.cad/UI/ProjectWorkspace.cs": "a26f3261cb0cb566656cb482341f56bf2f49a1ed0796c2aeb7c6289634f03ce8",
+        "beamng.cad/UI/ProjectWorkspace.cs": "c605d532dbcfe2dc5148680c75330f6a3edb612ff1bb621711d522f283cef417",
         "beamng.cad/UI/ReferenceSkeleton.cs": "12e94f4dc8a905cc9ce76d43dc80159298f6718b81b184086966b4f5310572ef",
         "beamng.cad/UI/ResponsiveLayout.cs": "4783aef5baa2307be4139db0b8a2f9273206c7655d3adea746f7333606b19176",
         "beamng.cad/UI/SettingsPanel.cs": "485315ecf3ab23ce4128460afcbdb5c81c29b42972dcdff24500fd71f64c8cd6",
         "beamng.cad/UI/StaticFramePanel.cs": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "beamng.cad/UI/TemplateImportPanel.cs": "7beb1595e1bc09c0f4f99d207a38f9917197c23f0087f22e4cfa2270cb3c7654",
         "beamng.cad/UI/VehicleReadiness.cs": "7eb73f912c2fc92ea25afc7a252dd47252a42d5b9fe551c7d01c40e6ee975b86",
-        "beamng.cad/UI/WorkflowNextStep.cs": "b3037edb0bc59a25a2996500b422eff4f69acd3796711dd2d0585e880c594bad"
+        "beamng.cad/UI/WorkflowNextStep.cs": "9d1747a9d5dcaccd95dc4ab69353b20ded6a03fda86c3486a0d116307a673b26"
       }
     },
     "website": {

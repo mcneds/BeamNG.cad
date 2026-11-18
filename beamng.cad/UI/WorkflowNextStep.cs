@@ -9,7 +9,7 @@ namespace BeamNG.Cad.UI
         private readonly FlowLayoutPanel body=new FlowLayoutPanel {Dock=DockStyle.Top,AutoSize=true,FlowDirection=FlowDirection.TopDown,WrapContents=false};
         private readonly Label title=new Label {Name="WorkflowNextTitle",AutoSize=true};
         private readonly Label detail=new Label {Name="WorkflowNextDetail",AutoSize=true};
-        private readonly Button next=new Button {Name="WorkflowNextAction",AutoSize=false,Padding=new Padding(8,4,8,4)};
+        private readonly Button next=new Button {Name="WorkflowNextAction",AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,Padding=new Padding(8,4,8,4)};
         internal event Action FollowRequested;
         public WorkflowNextStep()
         {
@@ -32,9 +32,6 @@ namespace BeamNG.Cad.UI
         {
             var width=Math.Max(1,ClientSize.Width-Padding.Horizontal-8);
             body.MaximumSize=new Size(width,0);title.MaximumSize=detail.MaximumSize=new Size(width,0);
-            next.Width=Math.Min(width,TextRenderer.MeasureText(next.Text,next.Font).Width+next.Padding.Horizontal+8);
-            var text=TextRenderer.MeasureText(next.Text,next.Font,new Size(Math.Max(1,next.Width-next.Padding.Horizontal-8),int.MaxValue),TextFormatFlags.WordBreak|TextFormatFlags.NoPrefix);
-            next.Height=Math.Max((int)Math.Ceiling(32*next.DeviceDpi/96.0),text.Height+next.Padding.Vertical+8);
         }
     }
 }

@@ -57,6 +57,10 @@ public static class ProjectWorkspaceTest {
  }
  static void Show(Form form){form.StartPosition=FormStartPosition.Manual;form.Location=new Point(-20000,-20000);form.ShowInTaskbar=false;form.Show();Pump(30);}
  static void Capture(Control control,string name){using(var image=new Bitmap(control.Width,control.Height)){control.DrawToBitmap(image,new Rectangle(0,0,control.Width,control.Height));image.Save(Path.Combine(output,name+".png"));}}
+ static bool FitsCaption(Button button){
+  var preferred=button.GetPreferredSize(Size.Empty);
+  return button.Width>=preferred.Width&&button.Height>=preferred.Height&&button.Parent.ClientRectangle.Contains(button.Bounds);
+ }
  static object Catalog(){return code.GetType("BeamNG.Cad.Preparation.MvpCatalog").GetMethod("Load").Invoke(null,null);}
  static object Fresh(string document,string name){return code.GetType("BeamNG.Cad.Preparation.VehicleProject").GetMethod("CreateFresh").Invoke(null,new object[]{document,Path.Combine(output,name+".json"),Catalog(),"authored"});}
  static object Settings(string name){return New("UI.ExporterSettings",Path.Combine(output,name+".xml"));}
@@ -101,10 +105,24 @@ public static class ProjectWorkspaceTest {
    foreach(var width in new[]{320,670,450}){
     form.ClientSize=new Size(width,800);dock.Hide();dock.Show();Call(dock,"RefreshAfterDocking");Pump(50);
     Check(dock.Bounds==form.ClientRectangle&&panel.Bounds==dock.ClientRectangle,"reopened dock fills its host at width "+width);
+    var actions=All((Control)Field(panel,"content")).OfType<Button>().ToArray();
+    Check(actions.Length==3&&actions.All(FitsCaption),"startup action captions fit at width "+width);
    }
+   Check((bool)Call(panel,"Navigate","Project"),"workspace opens Project without a CAD assembly");
+   var projectActions=All((Control)Field(panel,"content")).OfType<Button>().ToArray();
+   Check(projectActions.Length==3&&projectActions.All(FitsCaption),"project setup action captions fit");
    Check((bool)Call(panel,"Navigate","Settings"),"workspace opens Settings without a CAD assembly");
    Check((bool)Call(panel,"Navigate","Overview"),"workspace returns to project start without creating a project");
    Pump(450);Check(Prop(Prop(panel,"Session"),"Project")==null,"opening the workspace does not select or create a CAD project");Capture(form,"workspace-start");
+  }
+  using(var form=new Form {ClientSize=new Size(320,200)}){
+   var step=(Control)New("UI.WorkflowNextStep");form.Controls.Add(step);Show(form);
+   var state=New("UI.VehicleReadiness");SetField(state,"Title","Review saved setup");SetField(state,"Detail","Complete the saved inputs before building.");
+   var next=(Button)Named(step,"WorkflowNextAction");
+   foreach(var caption in new[]{"Complete joints and hardpoints","Review frame / calibration"}){
+    SetField(state,"ActionText",caption);Call(step,"ShowState",state,null,false);Pump(250);
+    Check(next.Visible&&next.Text==caption&&FitsCaption(next),"shared next-step caption fits for "+caption);
+   }
   }
  }
  public static void Native(int pid){

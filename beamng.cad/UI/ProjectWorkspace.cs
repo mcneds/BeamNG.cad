@@ -140,16 +140,9 @@ namespace BeamNG.Cad.UI
         {parent.Controls.Add(new Label {Text=text,AutoSize=true,MaximumSize=new Size(420,0),Margin=new Padding(3,5,3,8)});}
         private static void Action(Control parent,string text,System.Action action)
         {
-            var button=new Button {Text=text,AutoSize=false,AccessibleName=text,Padding=new Padding(8,4,8,4)};
-            System.Action fit=()=>{
-                var available=Math.Max(100,parent.ClientSize.Width-parent.Padding.Horizontal-button.Margin.Horizontal);
-                var natural=TextRenderer.MeasureText(button.Text,button.Font);
-                button.Width=Math.Min(available,natural.Width+button.Padding.Horizontal+8);
-                var wrapped=TextRenderer.MeasureText(button.Text,button.Font,new Size(Math.Max(1,button.Width-button.Padding.Horizontal-8),int.MaxValue),TextFormatFlags.WordBreak|TextFormatFlags.NoPrefix);
-                button.Height=Math.Max((int)Math.Ceiling(32*button.DeviceDpi/96.0),wrapped.Height+button.Padding.Vertical+8);
-            };
+            var button=new Button {Text=text,AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,AccessibleName=text,Padding=new Padding(8,4,8,4)};
             button.Click+=(s,e)=>{try{action();}catch(Exception error){MessageBox.Show(parent,error.Message,"beamng.cad",MessageBoxButtons.OK,MessageBoxIcon.Information);}};
-            parent.Controls.Add(button);parent.SizeChanged+=(s,e)=>fit();button.FontChanged+=(s,e)=>fit();fit();
+            parent.Controls.Add(button);
         }
         private void ShowOverview()
         {
