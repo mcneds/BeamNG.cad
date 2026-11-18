@@ -58,9 +58,11 @@ def averaged_coherence(left,right,rate,peak):
 def validate_speed_window(job,meta,vehicle):
     sys.path.insert(0,str(ROOT/'tools'))
     from steady_speed_control import settings
-    if job.get('steady_speed')!=settings(job.get('steady_speed',{}).get('target_m_s',float('nan'))):
+    config=job.get('steady_speed',{})
+    if config!=settings(config.get('target_m_s',float('nan')),config.get('coast_after_s')):
         raise ValueError('Changed steady-speed control settings')
     t=vehicle['t'];start=meta['config']['start_s'];end=start+meta['config']['duration_s']
+    if end>=config.get('coast_after_s',float('inf')):raise ValueError('Coasting is not a controlled speed hold')
     if len(t)<2 or not all(np.isfinite(vehicle[k]).all() for k in ('t','speed','broken')) or np.any(np.diff(t)<=0):
         raise ValueError('Invalid speed telemetry')
     if t[0]>start or t[-1]<end-.051 or np.max(np.diff(t))>.051:
@@ -136,7 +138,7 @@ def analyze(run):
     if not meta['complete'] or not probe['sources_unchanged'] or probe.get('error') or probe.get('resource_abort'):
         raise ValueError('Incomplete or changed-source recording')
     if meta['job_id']!=job['id'] or probe.get('completion',{}).get('status')!='completed':raise ValueError('Incomplete job or identity mismatch')
-    if job['scenario'] not in ('reverse','acceleration','left_turn','right_turn','suspension_rate','steady_speed'):raise ValueError('Unsupported frequency driving scenario')
+    if job['scenario'] not in ('settle','reverse','acceleration','left_turn','right_turn','suspension_rate','steady_speed'):raise ValueError('Unsupported frequency driving scenario')
     if job['scenario']=='steady_speed':
         vehicle=np.genfromtxt(run/'vehicle.csv',delimiter=',',names=True)
         validate_speed_window(job,meta,vehicle)

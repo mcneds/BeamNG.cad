@@ -29,6 +29,18 @@ Read the [license scope in the repository](https://github.com/mcneds/BeamNG.cad#
 
 The add-in targets .NET Framework 4.7.2, C# 8 and xCAD 0.8.0. Follow [installation](/start/install/) for build and registration. Refresh registration only when appropriate, and restart the native host after replacing managed assemblies.
 
+## Verify and publish a development branch
+
+GitHub Actions checks the add-in, offline Python suite, and handbook after a push or a pull request to `main`.
+
+For a Windows checkout, opt into publishing committed work from a single branch after a successful build. First commit and push the branch once with your normal Git credentials, then run the following from that branch:
+
+```powershell
+git config --local beamngcad.pushOnBuildBranch (git branch --show-current)
+```
+
+Subsequent builds push that branch to `origin` when the working tree is clean and the local commit differs from the last known remote commit. Commit your intended source changes first. Git's normal fast-forward rules apply. Use `-p:BeamNGPushOnBuild=false` for a one-off build, or `git config --local --unset beamngcad.pushOnBuildBranch` to turn off publishing in this checkout.
+
 ## Python environment
 
 Use Python 3.11+ for the harness and numerical workers. From the project root:

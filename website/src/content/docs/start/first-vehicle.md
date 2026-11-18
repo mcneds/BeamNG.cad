@@ -16,13 +16,14 @@ useful for appearance, but continues to test the synthetic vehicle's physics.
    **Build directory** on a drive with sufficient free space and leave **Save full build report** unchecked unless
    a full recording is needed. Check material assignments in SolidWorks. Keep
    the assembly's preparation and project JSON files beside it.
-2. In **Define Frame**, use the current frame selection and check its body list.
+2. In **Frame**, use the current frame selection and check its body list.
    Save that assignment; wait to prepare/calibrate the final frame until its
    mounting plan has been reviewed in step 5.
-3. Open **Components / mounts → Vehicle setup / MVP**. For the current vehicle,
+3. In **Project**, choose **New from CAD...**, select the authoring method and
+   save a separate project filename. Native CAD authoring is recommended;
+   reviewed mounting JSON remains supported. Open **Vehicle layout and project tools...**. For the current vehicle,
    choose **front double wishbone**, **rear trailing arm**, and **CVT / rear final
-   drive with geared front output**. Choose **Start fresh from CAD** and save a
-   new project filename to keep an existing appearance trial separately. The new
+   drive with geared front output**. The separate project keeps an existing appearance trial intact. The new
    project lists the required groups with empty assignments and a distinct mod
    identity; no mesh, physical package or hardpoint coordinates are imported.
    **Apply vehicle setup** adds any required rows after changing the layout. Use the
@@ -32,11 +33,10 @@ useful for appearance, but continues to test the synthetic vehicle's physics.
    Optional brake/accessory/separate CVT-output-shaft groups may be absent when
    there is no separate CAD group for them.
 4. Under **Components → CAD assignment**, select an unassigned group row, pick
-   its CAD bodies or instances, and use **Assign current selection**. This saves
+   its CAD bodies or instances, and use **Set to selected**. This saves
    into that row; repeating the action replaces its selection. Use **New tagged
    group** only to add another group, such as a repeated panel or shaft section.
-   It immediately adds and selects a saved empty row. Choose its role and name,
-   then assign CAD. Repeated panel/shaft roles carry over; unique roles such as
+   The group dialog asks for its role and name, then adds and selects a saved empty row. Assign CAD next. Repeated panel/shaft roles carry over; unique roles such as
    frame start as an unassigned new component to avoid accidental duplicates.
    **Assign whole components** explicitly expands to their
    owning instances. For the frame, use **Use saved frame**. Each body has one
@@ -44,7 +44,7 @@ useful for appearance, but continues to test the synthetic vehicle's physics.
    groups. Name repeated panels individually. For surfaces, use **Physical
    properties** to enter thickness and material, or exclude their mass and
    choose a physical parent. A weightless skin has no independent breakaway.
-5. In **Build / test**, choose **Refresh tagged CAD** and correct missing roles,
+5. In **Build**, choose **Refresh tagged CAD** and correct missing roles,
    duplicate ownership, unresolved references and material errors. **Stop here
    for the first review.** The **Log** gives the project and inventory paths
    (`<assembly>.beamng-project.json` and its `.inventory.json` companion). Keep
@@ -52,16 +52,18 @@ useful for appearance, but continues to test the synthetic vehicle's physics.
    wheel axes and dimensions, spring/damper endpoints, mounts, travel and the
    CVT/differential ratio and reverse arrangement against that inventory.
    The tested example's coordinates and ratios are not defaults for your car.
-6. In **Joints & mounts**, choose **Authored CAD joints**, review native mates
+6. In **Joints**, choose **Authored CAD joints**, review native mates
    and bind every requested hardpoint to your CAD. Follow the
    [joint and fastener workflow](/guides/joints/), including
    the moving rack and physical parameters. **Check definition** reports missing
    or incompatible inputs. An existing reviewed JSON definition can still use
-   **Reviewed template definition** and **Load template hardpoints**. Then prepare the
-   frame afresh, review its hull and fixtures, **Calibrate CAD frame**, and
-   **Package calibrated mod**. Preparation includes this definition's mount plan;
-   changing it later requires fresh calibration.
-7. Return to **Build / test → Regenerate physics / package**. This builds the
+   **Reviewed template definition** and **Load template hardpoints**. The **Next step**
+   panel leads from incomplete body assignments to joints and hardpoints. You can
+   preview the frame while doing this work. Once inputs are ready, prepare the hull
+   and choose **Accept hull / review fixtures** to check the mounting plan.
+   Approve the fixtures, **Calibrate CAD frame**, then **Package calibrated mod**.
+   Changing the mounting plan later requires fresh calibration.
+7. Return to **Build → Regenerate physics / package**. This builds the
    full vehicle from your CAD properties and reviewed template. Check its receipt
    and `manifest.json`. Without a complete authored or imported definition, the component builder is
    not a complete drivable-vehicle generator.

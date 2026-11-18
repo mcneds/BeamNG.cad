@@ -14,6 +14,7 @@ local coiloverBeams={}
 local toeLinkBeams={}
 local steeringTieBeams={}
 local frequencyRecorder
+local steeringVisualCommand=0
 local function finish(state,reason)
   if not running then return end
   running=false;if file then file:flush();file:close() end
@@ -100,7 +101,7 @@ local function start(manifest)
     end
   end
   obj:setSleepingEnabled(false)
-  job=manifest;running=true;t=0;samples=0;sampleAt=0;distance=0;braking=false;switchDone=false;nodes={};byName={};initial={}
+  job=manifest;running=true;t=0;samples=0;sampleAt=0;distance=0;braking=false;switchDone=false;nodes={};byName={};initial={};steeringVisualCommand=0
   -- Native automation filter omits user steering assists. Keep this owned
   -- recording independent of gamepad settings and physical controller input.
   savedInputSources={}
@@ -402,6 +403,29 @@ local function updateGFX(dt)
       throttle=speed<3 and .35 or 0;steering=job.scenario=='left_turn' and -0.7 or 0.7
     end
   end
+  if job.scenario=='steering_visual' then
+    local target=0
+    if t<12.5 then
+      brake=1
+      if t>=4 and t<6.5 then target=-1 elseif t>=8 and t<10.5 then target=1 end
+    elseif t<22 then
+      throttle=math.max(0,math.min(.4,(3-speed)*.25));brake=math.max(0,math.min(.2,(speed-3)*.1))
+      target=t<18 and -.35 or .35
+    elseif t<38 then
+      throttle=math.max(0,math.min(.65,(6-speed)*.25));brake=math.max(0,math.min(.2,(speed-6)*.1))
+      target=t<31 and -.2 or .2
+    else brake=1 end
+    steeringVisualCommand=steeringVisualCommand+math.max(-dt*.75,math.min(dt*.75,target-steeringVisualCommand))
+    steering=steeringVisualCommand
+    for label,at in pairs({neutral=3.8,left=6,right=10,['return']=12,['low-left']=17,['low-right']=21,['medium-left']=29,['medium-right']=35}) do
+      if t>=at and t-dt<at then
+        local tag='steering-'..label
+        jsonWriteFile(job.output..'/'..tag..'-input.json',{job_id=job.id,session_id=job.session_id,physics_time=t,
+          steering_degrees=electrics.values.steering,speed_m_s=speed,command=steering},true)
+        obj:queueGameEngineLua(string.format('vehicleharness_bridge.capture(%q,%g,%q)',tag,t,job.id))
+      end
+    end
+  end
   input.event('throttle',throttle,'FILTER_AI',nil,nil,nil,'cadHarness')
   input.event('brake',brake,'FILTER_AI',nil,nil,nil,'cadHarness')
   input.event('steering',steering,'FILTER_AI',nil,nil,nil,'cadHarness')
@@ -500,7 +524,7 @@ local function updateGFX(dt)
       end
       for name,device in pairs(powertrain.getDevices()) do
         deviceState[name]={mode=device.mode,gear_index=device.gearIndex,ratio=device.gearRatio,
-          input_av=device.inputAV,output_av=device.outputAV1,output_torque=device.outputTorque1,clutch_ratio=device.clutchRatio}
+          input_av=device.inputAV,output_av=device.outputAV1,output_av2=device.outputAV2,output_torque=device.outputTorque1,clutch_ratio=device.clutchRatio}
       end
       for _,wheel in pairs(wheels.wheels) do
         wheelState[wheel.name]={propulsion_torque=wheel.propulsionTorque,braking_torque=wheel.brakingTorque,friction_torque=wheel.frictionTorque,

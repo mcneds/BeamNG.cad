@@ -189,8 +189,10 @@ def requests(project):
 def resolve_bindings(project):
     workspace=project.get('JointWorkspace') or {};anchors={a['Id']:a for a in project.get('Anchors',[])}
     joints={j['Id']:j for j in workspace.get('Joints',[])};values={}
+    active_requests={r['id'] for r in requests(project)} if project.get('Driveline') else None
     for binding in workspace.get('Bindings',[]):
         key=binding['Request']
+        if active_requests is not None and key not in active_requests:continue
         if key in values:raise ValueError('Duplicate hardpoint binding: '+key)
         if binding.get('Status')!='resolved':raise ValueError('Repair '+key)
         if binding.get('JointId'):
@@ -236,6 +238,7 @@ def definition(project):
         if request['id'] in bindings and bindings[request['id']].get('ComponentId')!=owners[0]:
             raise ValueError(request['id']+': hardpoint is bound to the wrong component; select '+request['role'])
     for component in project['Components']:
+        if project.get('Driveline'):continue
         role=component.get('MvpRole','')
         ends=('inner_joint','outer_joint') if role.endswith('_halfshaft') else ('input_joint','output_joint') if role in ('front_propshaft','cvt_output_shaft') else ()
         for end in ends:
@@ -267,7 +270,7 @@ def definition(project):
         mount['index']=len(points);points.append(mount['position'])
     # Shaft endpoints are captured in the same editor and are never guessed from
     # bounds. Ordered multi-section chains are supplied as reviewed joint links.
-    for comp in project['Components']:
+    for comp in ([] if project.get('Driveline') else project['Components']):
         role=comp.get('MvpRole','');owner=comp['Id']
         if role.endswith('_halfshaft'):
             a,b=values.get(owner+'.inner_joint'),values.get(owner+'.outer_joint')
@@ -280,7 +283,10 @@ def definition(project):
             result['shafts'][owner]=dict(inner=a,outer=b,inner_role='rear_final_drive' if role=='front_propshaft' else 'cvt',
                                        outer_role='front_diff' if role=='front_propshaft' else 'rear_final_drive' if templates['drivetrain']=='cvt_rear_front_output' else 'rear_diff')
     from authored_shafts import compile_chains
-    result['shaft_chains']=compile_chains(project,result,values,parameters)
+    result['shaft_chains']={} if project.get('Driveline') else compile_chains(project,result,values,parameters)
+    if project.get('Driveline'):
+        from driveline import resolve
+        result.update(version=2,driveline=resolve(project))
     from joint_contract import validate
     result['joint_contract']=validate(project,result)
     return result

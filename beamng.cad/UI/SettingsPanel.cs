@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Windows.Forms;
 
 namespace BeamNG.Cad.UI
@@ -34,58 +35,65 @@ namespace BeamNG.Cad.UI
             var cgal = AddFolder(layout, "CGAL Python executable", "CgalPythonExecutable", settings.CgalPythonExecutable);
             var material = AddFolder(layout, "Material/settings source folder", "SettingsFrameSource", settings.FrameSource);
             var output = AddFolder(layout, "Build directory (exports, calibration, packages and worker scratch)", "SettingsFrameOutput", settings.FrameOutput);
-            var save = new Button { Name = "SaveSettings", Text = "Save settings", AutoSize = true };
-            var status = new Label { Name = "SettingsStatus", AutoSize = true, Dock = DockStyle.Top, Text = settings.LoadError ?? "" };
-            save.Click += (sender, args) =>
-            {
-                try
-                {
-                    var gamePath = game.Text.Trim();
-                    var modsPath = mods.Text.Trim();
-                    if (!Path.IsPathRooted(gamePath) || !File.Exists(Path.Combine(gamePath, "BeamNG.drive.exe")))
-                        throw new ArgumentException("Select the installation folder containing BeamNG.drive.exe.");
-                    if (!Path.IsPathRooted(modsPath) || !Directory.Exists(modsPath)
-                        || !string.Equals(new DirectoryInfo(modsPath).Name, "mods", StringComparison.OrdinalIgnoreCase))
-                        throw new ArgumentException("Select an existing mods folder in your BeamNG user folder.");
-                    gamePath = Path.GetFullPath(gamePath).TrimEnd(Path.DirectorySeparatorChar);
-                    modsPath = Path.GetFullPath(modsPath).TrimEnd(Path.DirectorySeparatorChar);
-                    if (modsPath.StartsWith(gamePath + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-                        throw new ArgumentException("The mods folder must be outside the game installation.");
-                    settings.GameDirectory = gamePath;
-                    settings.ModsDirectory = modsPath;
-                    settings.Save();
-                    status.Text = "Settings saved";
-                }
-                catch (Exception error) { status.Text = error.Message; }
-            };
-            Action persist = () => {
-                try { settings.Save(); status.Text = "Settings saved"; }
-                catch (Exception e) { status.Text = "Could not save settings: " + e.Message; }
-            };
-            var dirty = false;
-            var timer = new Timer { Interval = 500 };
-            timer.Tick += (s, e) => { timer.Stop(); if (dirty) { persist(); dirty = false; } };
-            // Update only the field that was edited. Other panels share this settings
-            // object and may have newer values than this panel's inactive controls.
-            Action<TextBox, Action<string>> bind = (input, update) =>
-                input.TextChanged += (s, e) => {
-                    update(input.Text.Trim()); dirty = true; timer.Stop(); timer.Start();
-                };
-            bind(game, value => settings.GameDirectory = value);
-            bind(mods, value => settings.ModsDirectory = value);
-            bind(python, value => settings.PythonExecutable = value);
-            bind(calibrationPython, value => settings.CalibrationPythonExecutable = value);
-            bind(harnessProfile, value => settings.HarnessProfile = value);
-            bind(blender, value => settings.BlenderExecutable = value);
-            bind(cgal, value => settings.CgalPythonExecutable = value);
-            bind(material, value => settings.FrameSource = value);
-            bind(output, value => settings.FrameOutput = value);
             var reports=new CheckBox {Name="SettingsSaveBuildReports",AutoSize=true,Text="Save full build report (failures are always kept)",Checked=settings.SaveBuildReports=="true"};
-            reports.CheckedChanged+=(s,e)=>{settings.SaveBuildReports=reports.Checked?"true":"false";persist();};
             layout.Controls.Add(reports);
-            Disposed += (s, e) => { timer.Dispose(); if (dirty) persist(); };
-            layout.Controls.Add(save);
-            layout.Controls.Add(status);
+            var fields=new System.Collections.Generic.Dictionary<string,TextBox> {
+                {"GameDirectory",game},{"ModsDirectory",mods},{"PythonExecutable",python},
+                {"CalibrationPythonExecutable",calibrationPython},{"HarnessProfile",harnessProfile},
+                {"BlenderExecutable",blender},{"CgalPythonExecutable",cgal},{"FrameSource",material},{"FrameOutput",output}};
+            var baseline=fields.ToDictionary(p=>p.Key,p=>p.Value.Text.Trim());
+            var originalReports=reports.Checked;
+            var status=new Label {Name="SettingsStatus",AutoSize=true,Dock=DockStyle.Top,Text=settings.LoadError??""};
+            pending=()=>fields.Any(p=>p.Value.Text.Trim()!=baseline[p.Key])||reports.Checked!=originalReports;
+            apply=()=>{
+                try {
+                    foreach(var pair in fields.Where(p=>p.Value.Text.Trim()!=baseline[p.Key])) {
+                        var value=pair.Value.Text.Trim();
+                        if(value.Length==0 && pair.Key!="GameDirectory" && pair.Key!="ModsDirectory")continue;
+                        string error=null;
+                        if(!Path.IsPathRooted(value))error="Choose an absolute path.";
+                        else if(pair.Key=="GameDirectory"&&!File.Exists(Path.Combine(value,"BeamNG.drive.exe")))error="Choose the folder containing BeamNG.drive.exe.";
+                        else if(pair.Key=="ModsDirectory"&&(!Directory.Exists(value)||!string.Equals(new DirectoryInfo(value).Name,"mods",StringComparison.OrdinalIgnoreCase)))error="Choose an existing BeamNG user mods folder.";
+                        else if(pair.Key.EndsWith("Executable")&&!File.Exists(value))error="Choose an existing executable.";
+                        else if((pair.Key=="FrameSource"||pair.Key=="HarnessProfile")&&!Directory.Exists(value))error="Choose an existing directory.";
+                        if(error!=null){pair.Value.Focus();throw new ArgumentException(pair.Value.AccessibleName+": "+error);}
+                    }
+                    if((game.Text.Trim()!=baseline["GameDirectory"]||mods.Text.Trim()!=baseline["ModsDirectory"]) && game.Text.Trim().Length>0 && mods.Text.Trim().Length>0 && Path.GetFullPath(mods.Text.Trim()).StartsWith(Path.GetFullPath(game.Text.Trim()).TrimEnd(Path.DirectorySeparatorChar)+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase))
+                        throw new ArgumentException("The mods folder must be outside the game installation.");
+                    // Reload before applying only changed fields, preserving edits from other panels.
+                    var latest=settings.Reload();
+                    foreach(var pair in fields.Where(p=>p.Value.Text.Trim()!=baseline[p.Key]))typeof(ExporterSettings).GetProperty(pair.Key).SetValue(latest,pair.Value.Text.Trim());
+                    if(reports.Checked!=originalReports)latest.SaveBuildReports=reports.Checked?"true":"false";
+                    latest.Save();
+                    foreach(var pair in fields){var value=(string)typeof(ExporterSettings).GetProperty(pair.Key).GetValue(latest);typeof(ExporterSettings).GetProperty(pair.Key).SetValue(settings,value);pair.Value.Text=value;baseline[pair.Key]=value;}
+                    settings.SaveBuildReports=latest.SaveBuildReports;reports.Checked=latest.SaveBuildReports=="true";originalReports=reports.Checked;
+                    status.Text="Settings applied.";return true;
+                } catch(Exception error){status.Text=error.Message;return false;}
+            };
+            discard=()=>{foreach(var pair in fields)pair.Value.Text=baseline[pair.Key];reports.Checked=originalReports;status.Text="Changes discarded.";};
+            var buttons=new FlowLayoutPanel {AutoSize=true,Dock=DockStyle.Top};
+            var save=new Button {Name="SaveSettings",Text="Apply settings",AutoSize=true};save.Click+=(s,e)=>apply();buttons.Controls.Add(save);
+            var cancel=new Button {Name="DiscardSettings",Text="Discard changes",AutoSize=true};cancel.Click+=(s,e)=>discard();buttons.Controls.Add(cancel);
+            foreach(var input in fields.Values)input.TextChanged+=(s,e)=>status.Text=HasPendingChanges?"Settings changes pending. Apply or discard them.":"";
+            reports.CheckedChanged+=(s,e)=>status.Text=HasPendingChanges?"Settings changes pending. Apply or discard them.":"";
+            layout.Controls.Add(buttons);layout.Controls.Add(status);
+        }
+        private Func<bool> pending=()=>false;
+        private Func<bool> apply=()=>true;
+        private Action discard=()=>{};
+        public bool HasPendingChanges=>pending();
+        internal bool ApplyChanges()=>apply();
+        internal bool ResolveChanges()
+        {
+            if(!HasPendingChanges)return true;
+            var choice=MessageBox.Show(this,"Apply the pending settings changes?", "Settings changes",MessageBoxButtons.YesNoCancel,MessageBoxIcon.Question);
+            if(choice==DialogResult.Cancel)return false;
+            if(choice==DialogResult.Yes)return apply();
+            discard();return true;
+        }
+        protected override void OnLoad(EventArgs e)
+        {
+            base.OnLoad(e);var host=FindForm();if(host!=null)host.FormClosing+=(s,args)=>{if(!ResolveChanges())args.Cancel=true;};
         }
 
         private static TextBox AddFolder(TableLayoutPanel parent, string label, string name, string value)

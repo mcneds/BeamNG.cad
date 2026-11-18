@@ -65,13 +65,13 @@ namespace BeamNG.Cad.Preparation
         {
             var ids=new HashSet<string>(BaseRoles.Concat(TemplateSets.SelectMany(s=>Selected(project,s).Roles)));
             var hardpoints=TemplateSets.Select(s=>Selected(project,s)).Where(o=>o.Hardpoints!=null).SelectMany(o=>o.Hardpoints).ToDictionary(p=>p.Key,p=>p.Value);
-            return Roles.Where(r=>ids.Contains(r.Id)).Select(r=>new MvpRole {Id=r.Id,Label=r.Label,Representation=r.Representation,Generator=r.Generator,
-                Required=r.Required,Repeatable=r.Repeatable,Hardpoints=hardpoints.TryGetValue(r.Id,out var points)?points:r.Hardpoints}).ToList();
+            return Roles.Where(r=>ids.Contains(r.Id)||project.Driveline!=null&&Driveline.IsDriveRole(r.Id)).Select(r=>new MvpRole {Id=r.Id,Label=r.Label,Representation=r.Representation,Generator=r.Generator,
+                Required=r.Required&&!(project.Driveline!=null&&Driveline.IsDriveRole(r.Id)),Repeatable=r.Repeatable||project.Driveline!=null&&Driveline.IsDriveRole(r.Id),Hardpoints=project.Driveline!=null&&Driveline.IsDriveRole(r.Id)?new List<string>():hardpoints.TryGetValue(r.Id,out var points)?points:r.Hardpoints}).ToList();
         }
         public List<JointRequest> JointRequests(VehicleProject project)
         {
             var result=TemplateSets.SelectMany(s=>Selected(project,s).JointRequests??new List<JointRequest>()).ToList();
-            foreach(var c in project.Components.Where(c=>(c.MvpRole??"").EndsWith("_halfshaft")||c.MvpRole=="front_propshaft"||c.MvpRole=="cvt_output_shaft"))
+            foreach(var c in project.Components.Where(c=>project.Driveline==null&&((c.MvpRole??"").EndsWith("_halfshaft")||c.MvpRole=="front_propshaft"||c.MvpRole=="cvt_output_shaft")))
                 foreach(var end in new[]{c.MvpRole.EndsWith("_halfshaft")?"inner_joint":"input_joint",c.MvpRole.EndsWith("_halfshaft")?"outer_joint":"output_joint"})
                     result.Add(new JointRequest {Id=c.Id+"."+end,Role=c.MvpRole,Label=c.Name+" "+end.Replace('_',' ')});
             return result;
@@ -87,10 +87,13 @@ namespace BeamNG.Cad.Preparation
                     assigned.All(c=>ComponentAssignments.State(project,c,false)=="saved")?"CAD SAVED":"CAD NEEDED";
                 lines.Add(state+" | "+role.Label+" | "+string.Join(", ",assigned.Select(c=>c.Name))+" | "+role.Generator);
                 if(role.Hardpoints.Count>0)lines.Add("    Required hardpoints: "+string.Join(", ",role.Hardpoints));
-                if(assigned.Count>1 && (role.Id=="front_propshaft" || role.Id=="cvt_output_shaft"))
+                if(project.Driveline==null && assigned.Count>1 && (role.Id=="front_propshaft" || role.Id=="cvt_output_shaft"))
                     lines.Add("    Review ordered shaft_chains in the template: one CAD group per section, joint centres, plunge and carrier supports. List order does not define the chain.");
             }
-            var untagged=project.Components.Where(c=>string.IsNullOrEmpty(c.MvpRole)&&c.Template!="calibrated_frame").ToList();
+            if(project.Driveline!=null)lines.AddRange(project.Driveline.ReferenceIssues(project).Select(s=>"DRIVELINE: "+s));
+            var driveOwners=new HashSet<string>(project.Driveline?.Endpoints.Select(e=>e.Component)??Enumerable.Empty<string>());
+            if(project.Driveline!=null)driveOwners.UnionWith(project.Driveline.Shafts.Select(s=>s.Component));
+            var untagged=project.Components.Where(c=>string.IsNullOrEmpty(c.MvpRole)&&c.Template!="calibrated_frame"&&!driveOwners.Contains(c.Id)).ToList();
             if(untagged.Count>0)lines.Add("UNTAGGED: "+string.Join(", ",untagged.Select(c=>c.Name)));
             foreach(var c in project.Components.Where(c=>!string.IsNullOrEmpty(c.MvpRole)&&!active.Any(r=>r.Id==c.MvpRole)))lines.Add("OUTSIDE CURRENT SETUP: "+c.Name+" ["+c.MvpRole+"] - selection retained");
             return string.Join(System.Environment.NewLine,lines);

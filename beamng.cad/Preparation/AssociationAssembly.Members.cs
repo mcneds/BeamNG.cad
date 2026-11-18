@@ -44,7 +44,7 @@ namespace BeamNG.Cad.Preparation
             export.Components=members.Select(m=>new ComponentDefinition {Id=m.Id,Name=m.Name,Template=component.Template,Configuration=component.Configuration,
                 Selections=m.Selections,BodyIds=m.BodyIds,CadSourceDocument=source.GetPathName(),AppearanceSelections=m.Selections,
                 AppearanceConfiguration=component.Configuration,AppearanceSourceDocument=source.GetPathName(),SurfaceMassMode=component.SurfaceMassMode,Thickness=component.Thickness}).ToList();
-            export.Anchors.Clear();export.Connections.Clear();export.JointWorkspace=new JointWorkspace();export.TemplateDefinitionPath="";export.Save();
+            export.Anchors.Clear();export.Connections.Clear();export.JointWorkspace=new JointWorkspace();export.Driveline=null;export.TemplateDefinitionPath="";export.Save();
             var copier=new AssociationAssembly(app,source) {copyPartsOnly=true};
             var generated=await copier.Create(export,Path.Combine(revision,"parts"),(value,message)=>progress?.Invoke(value*65/100,message),token);
             var generatedReceipt=JsonFile.Read<Receipt>(generated.ReceiptPath);

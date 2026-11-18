@@ -39,9 +39,13 @@ The `cad_axisymmetric` mass option fits CAD total mass and axial inertia, with a
 
 Tire damping, precompression, bead width and hub stiffness are physical model settings that require a new verified package when changed. Native wheel-axis measurements help distinguish carrier alignment error from carcass deformation.
 
+Contact resolution is separate from the suspension linkage. New vehicle generation defaults to 24 tire rays; the existing `tire_rays` parameter accepts integers from 12 to 32. A coarse rolling tire can excite visible wheel hop on flat ground even when a stationary vehicle settles normally. More detailed appearance meshes do not improve these native contacts.
+
+The generator allocates CAD mass and evaluates the provisional carcass recipe at a 16-ray reference, then redistributes each ring's mass over the requested ray count. This preserves ring mass, centre and analytical inertia without adding suspension nodes or changing the shock laws. It also avoids applying the low-mass carcass budget again merely because the contact nodes are smaller. Refinement adds native wheel nodes and changes the discrete carcass: it does **not** prove identical effective tire stiffness or calibrated rubber behaviour. Verify rolling motion at neighboring speeds after changing resolution.
+
 ## Torque paths
 
-The supported geared-AWD layout is:
+The earlier geared-AWD preset is:
 
 ```text
 Engine → centrifugal clutch → CVT → rear reduction → carrier takeoff
@@ -50,6 +54,11 @@ Engine → centrifugal clutch → CVT → rear reduction → carrier takeoff
 ```
 
 The front output is upstream of the rear left/right differential, not taken from a rear halfshaft. The RWD layout omits the front driven branch.
+
+The native **Driveline** workspace also supports arrangements authored from CAD
+endpoints and typed device ports. Layout presets are starting points; graph
+connections determine the actual torque path, driven hubs and housing ownership.
+See [Driveline graphs and shaft sections](/guides/shafts/) for authoring and limits.
 
 Reaction nodes bind the engine and differential devices to their physical housings. Braking reacts through uprights or trailing arms. The numerical torsional budget includes both geared wheel inertia and housing recoil; provisional coupling compliance does not calibrate real shaft twist, heating or failure.
 

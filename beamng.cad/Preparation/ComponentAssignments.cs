@@ -66,6 +66,22 @@ namespace BeamNG.Cad.Preparation
             component.AppearanceSourceDocument=document;component.AppearanceDirectory=null;component.AppearanceTransform=null;
             component.AppearancePackageState="pending";component.AppearancePackageError=null;
         }
+        public static FrameAssignment CombinedPhysical(ComponentDefinition component,FrameAssignment selection,string document)
+        {
+            RequireSelection(selection);
+            var existing=component.Selections??new List<SelectionReference>();
+            if(existing.Count>0)
+            {
+                if(!SameDocument(Source(component,false),document))
+                    throw new InvalidOperationException("The group's saved CAD belongs to another or unverified assembly. Set to selected to replace it. No assignment changed.");
+                if(component.Configuration!=selection.Configuration)
+                    throw new InvalidOperationException("Activate the group's saved configuration before adding CAD. No assignment changed.");
+            }
+            // Resolve the combined references before committing so unavailable
+            // saved geometry and overlapping body/component picks are checked too.
+            return new FrameAssignment {Configuration=selection.Configuration,Selections=Copy(existing.Concat(selection.Selections)
+                .GroupBy(s=>new {s.Kind,s.Reference,s.ComponentReference}).Select(g=>g.First()).ToList())};
+        }
         public static void Physical(VehicleProject project,ComponentDefinition component,FrameAssignment selection,List<string> bodyIds,string document)
         {
             RequireSelection(selection);

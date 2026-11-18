@@ -5,16 +5,24 @@ sidebar:
   order: 1
 ---
 
-Open **Frame workflow > Components / mounts**. Assignments live beside the saved
+Open **Components** on the SolidWorks beamng.cad CommandManager. Assignments live beside the saved
 assembly in `<assembly>.beamng-project.json`, including persistent CAD references,
 configuration, body IDs, role tags, generation settings and mounting points.
 Tagging does not require a completed frame package or a successful hull preview.
+
+Component fields, including spring settings, share one **Apply component changes** / **Discard** boundary. Switching groups, filtering the list, leaving the task or starting an operation offers Apply/Discard/Cancel when edits are pending. Apply covers the edited component fields together; CAD-reference assignment and package generation remain explicit actions.
 
 ## Choose the template set first
 
 On **Vehicle setup / MVP**, choose front suspension, rear suspension and drivetrain,
 then **Apply vehicle setup**. Required groups and associations come from those
 choices in `FramePipeline/template_catalog.json`.
+
+For an endpoint-authored arrangement, use [Driveline graphs](/guides/shafts/).
+Once a graph is adopted, its devices and shaft owners replace the drivetrain
+preset's role/count requirements. Suspension templates still define the four
+hub mechanisms. Partial graphs can be saved but must pass **Check graph** and
+generation preflight before use.
 
 Input schemas include front double wishbone or MacPherson strut, rear trailing
 arms or double wishbone independent suspension, and CVT rear drive with or without
@@ -30,19 +38,35 @@ Changing a setup retains existing selections. Tags no longer requested appear as
 
 ## Tag the CAD groups
 
-1. Choose an **MVP role** and click **New tagged group**. Give it a useful name.
+For a rigid small component such as a steering-wheel body, select the **rigid**
+generation method instead of wrapping its detailed mesh. This uses the declared
+mounting points plus six mass points to preserve CAD mass, centre of mass and
+inertia. Its appearance follows a rigid prop. These mass points are not a
+collision shell; the method does not model local bending, rupture or steering
+column animation. Use a panel or collision-bearing bulk representation when
+those behaviours are required. Attachment and joint definitions remain separate.
+
+This is an explicit representation choice, not a guess based on the component's
+name. A lightweight rigid control does not need a dense node at every feature of
+its visible mesh. Numerical support-mass requirements for suspension hardpoints
+remain separate from its captured CAD mass.
+
+1. Click **New tagged group**, then choose its role and a useful name in the dialog.
    The role supplies a starting representation. Full-vehicle generation replaces
    suspension-group collision previews with the template's parametric mechanisms;
    bulk and panel groups retain their corresponding generated representations.
-2. Select CAD bodies or faces and click **Assign current selection**. A face means
+2. Select CAD bodies or faces and click **Set to selected**. A face means
    its entire owning body. Solid and surface bodies are supported. For a whole
    component or subassembly, use **Assign whole components**; selecting its edge
-   or feature is sufficient for that explicit action.
+   or feature is sufficient for that explicit action. **Set to selected** replaces
+   the group's saved geometry. To keep its existing bodies and include more,
+   select the additional CAD and click **Add to group**. Additions must use the
+   same assembly and configuration; bodies owned by another group are rejected.
 3. Repeat for the checklist groups. Each body belongs to one assignment. Group
    meshes of one rigid part together; separate parts that need independent motion
    or breakaway. Multiple panels/accessories are allowed. Use **Use saved frame**
    for the calibrated frame.
-4. To tag an existing list entry, change **MVP role** and **Save parameters**.
+4. To tag an existing list entry, change **MVP role** and **Apply component changes**.
    **Show CAD selection** recalls its bodies.
 5. Click **Refresh tagged CAD** after assigning groups or changing CAD. This
    resolves saved selections, exports current geometry/materials, refreshes mounts

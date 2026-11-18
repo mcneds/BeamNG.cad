@@ -17,6 +17,8 @@ from .models import HarnessProject
 from .runner import exclusive_userpath,prepare_userpath,read_json,check_recording_space
 
 SCENARIOS={'settle':30.,'supported':18.,'articulation':24.,'acceleration':25.,'braking':30.,'reverse':18.,'left_turn':22.,'right_turn':22.}
+# Appearance diagnostics are deliberately outside the driving acceptance schedule.
+DIAGNOSTIC_SCENARIOS={'steering_visual':44.}
 
 
 def finite_completion(completion):
@@ -58,6 +60,10 @@ def rendered_meshes_loaded(directory,manifest,completion):
 def steering_compiled(contract,actual):
     """Compare engine-compiled locators/actuator, not just the exported JBeam."""
     rails=contract.get('rail_nodes',{});sliders=contract.get('rail_sliders',{})
+    # Driveline sliding members can coexist with the steering rack. Their
+    # native rails are audited independently against the driveline contract.
+    actual=dict(actual,rails={k:v for k,v in actual.get('rails',{}).items() if not k.startswith('driveline_')},
+                sliders={k:v for k,v in actual.get('sliders',{}).items() if not k.startswith('driveline_')})
     # A hydro acts on endpoint distance. The compiled beam can reverse id1/id2
     # without changing its identity; still require every declared pair once.
     hydros=actual.get('hydros',[])
@@ -81,7 +87,7 @@ def analyze(directory,manifest,scenario,completion):
     if len(rows)<10 or len(rows)!=completion.get('samples'):result['reason']='Incomplete telemetry';return result
     data={k:np.array([float(row[k]) for row in rows]) for k in rows[0]};t=data['t'];metrics=result['metrics'];checks=result['checks']
     if not all(np.isfinite(v).all() for v in data.values()):result['reason']='Nonfinite telemetry';return result
-    if t[-1]<SCENARIOS[scenario]-.15 or np.any(np.diff(t)<=0):result['reason']='Recording ended early or timestamps are not increasing';return result
+    if t[-1]<(SCENARIOS|DIAGNOSTIC_SCENARIOS)[scenario]-.15 or np.any(np.diff(t)<=0):result['reason']='Recording ended early or timestamps are not increasing';return result
     metrics.update(peak_speed_kmh=float(max(data['speed'])*3.6),broken_beams=int(max(data['broken'])),peak_relative_node_speed_m_s=float(max(data['relative_node_speed'])))
     if scenario in ('supported','articulation'):
         clearance=completion.get('fixture_minimum_clearance_m')
@@ -121,6 +127,11 @@ def analyze(directory,manifest,scenario,completion):
         metrics['loaded_node_mass_floor_failures']=failures
     if manifest.get('steering_contract',{}):
         checks['rack_actuator_and_rails_compiled']=steering_compiled(manifest['steering_contract'],metadata.get('steering',{}))
+    drive_rails=(manifest.get('driveline_physics') or {}).get('rails',[])
+    if drive_rails:
+        actual=metadata.get('steering',{})
+        checks['driveline_rails_compiled']=all(actual.get('rails',{}).get(r['id'])==dict(nodes=[r['a'],r['b']],capped=True) and
+            actual.get('sliders',{}).get(r['slider'])==dict(rail=r['id'],attached=True,fixed=True) for r in drive_rails)
     if manifest.get('collision_policy'):
         expected=manifest['collision_policy']['frame_nodes']
         actual=metadata.get('actual_nodes',{})
@@ -139,6 +150,10 @@ def analyze(directory,manifest,scenario,completion):
                 ('lockSpring',budget['lock_spring_nm_rad2']),('lockDamp',budget['damping_nm_s_rad']))
             checks[key+'_compiled']=all(isinstance(actual.get(k),(int,float)) and np.isfinite(actual[k]) and
                 abs(actual[k]-v)<=max(1e-8,abs(v)*1e-5) for k,v in expected)
+    for device,budget in manifest.get('device_contract',{}).get('coupling_budgets',{}).items():
+        actual=metadata.get('device_graph',{}).get(device,{})
+        checks[device+'_coupling_budget_compiled']=all(isinstance(actual.get(k),(int,float)) and np.isfinite(actual[k]) and
+            abs(actual[k]-value)<=max(1e-8,abs(value)*1e-5) for k,value in budget['expected'].items())
     for name,expected in manifest.get('required_controllers',{}).items():
         actual=metadata.get('controllers',{}).get(name,{})
         checks['controller_'+name]=name in metadata.get('controllers',{}) and all(actual.get(key)==value for key,value in expected.items())
@@ -186,13 +201,18 @@ def analyze(directory,manifest,scenario,completion):
             tail=t>14
             for corner in manifest['expected_wheel_names']:
                 speed=float(np.mean(np.abs(data['av_'+corner][tail])))
-                checks[corner+'_drive_matches']=speed>1 if corner in contract['driven_wheels'] else speed<max(1.,float(np.mean(rear[tail]))*.15)
+                driven=max((float(np.mean(np.abs(data['av_'+c][tail]))) for c in contract['driven_wheels']),default=0.)
+                checks[corner+'_drive_matches']=speed>1 if corner in contract['driven_wheels'] else speed<max(1.,driven*.15)
                 if corner in contract['driven_wheels']:
                     velocity=data['av_'+corner][tail]
                     coherence=float(abs(np.sum(velocity))/max(np.sum(abs(velocity)),1e-9))
                     metrics[corner+'_spin_direction_coherence']=coherence
                     checks[corner+'_no_spin_reversal']=coherence>=.95
-            if len(contract['driven_wheels'])==4:
+            if contract.get('template')=='driveline_graph':
+                from .driveline_checks import sampled_checks
+                graph_checks,graph_metrics=sampled_checks(contract,(read_json(Path(directory)/'motion_diagnostics.json') or {}).get('samples',[]))
+                checks.update(graph_checks);metrics.update(graph_metrics)
+            elif len(contract['driven_wheels'])==4:
                 ratio=float(np.mean(front[tail])/max(np.mean(rear[tail]),1e-9));metrics['front_rear_speed_ratio']=ratio
                 checks['geared_axle_ratio']=abs(ratio-contract['front_rear_speed_ratio'])<.05
         else:
@@ -216,12 +236,13 @@ def analyze(directory,manifest,scenario,completion):
             motion_keys.add('motion_reference_complete')
     result['status']='passed' if all(checks.values()) else 'failed';result['reason']=None if result['status']=='passed' else ', '.join(k for k,v in checks.items() if not v)
     if result['status']=='passed':result['qualification_status']='scenario_verified'
+    if scenario in DIAGNOSTIC_SCENARIOS:result['qualification_status']='diagnostic_only'
     result['assessment']=assess(result,motion_keys,validated=True,expected_motion=bool(manifest.get('template_definition')))
     return result
 
 
 def run_vehicle(manifest_path,scenario='settle',*,project=None,progress=print,cancel=None,session=None,diagnostic=None):
-    if scenario not in SCENARIOS:raise ValueError('Unknown vehicle scenario')
+    if scenario not in SCENARIOS and scenario not in DIAGNOSTIC_SCENARIOS:raise ValueError('Unknown vehicle scenario')
     if diagnostic not in (None,'no_aero','no_self_collision','balance_ballast','symmetric_ballast','drop','drop_no_internal_static'):raise ValueError('Unknown diagnostic intervention')
     drop=diagnostic in ('drop','drop_no_internal_static')
     if drop and scenario!='settle':raise ValueError('Drop diagnostic requires settling')
@@ -242,7 +263,7 @@ def run_vehicle(manifest_path,scenario='settle',*,project=None,progress=print,ca
             if not target.is_file() or target.read_bytes()!=data:target.write_bytes(data)
         control=root/'settings/vehicle_harness';control.mkdir(parents=True,exist_ok=True)
         output=control/'results'/stamp;output.mkdir(parents=True)
-        job={'id':stamp,'model':m['model'],'config':m['config'],'scenario':scenario,'duration':SCENARIOS[scenario],
+        job={'id':stamp,'model':m['model'],'config':m['config'],'scenario':scenario,'duration':(SCENARIOS|DIAGNOSTIC_SCENARIOS)[scenario],
              'gravity':0 if scenario in ('supported','articulation') else -9.81,'spawn_z':m['spawn_z'] if scenario not in ('supported','articulation') else 2,
              'output':'/settings/vehicle_harness/results/'+stamp,'manifest':m,'diagnostic':diagnostic}
         if drop:job.update(spawn_z=job['spawn_z']+3.,drop_height_m=3.)

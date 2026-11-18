@@ -285,6 +285,10 @@ class VehicleTemplateGraphTests(unittest.TestCase):
                     self.assertEqual(len(patch_data['parents']),{'short':3,'joint':1,'direct':0}[patch_data['mode']])
                 for corner in wheels:
                     row=next(r for r in part['pressureWheels'][1:] if r[0]==corner)
+                    self.assertEqual(row[-1]['numRays'],24)
+                    resolution=wheels[corner]['mass_allocation']['contact_resolution']
+                    self.assertEqual(resolution['reference_rays'],16)
+                    self.assertAlmostEqual(resolution['ring_mass_kg'],wheels[corner]['wheel_mass_kg'])
                     start,end=map(graph.point,row[3:5]);hub=np.array(spec['hardpoints'][corner]['hub'])
                     self.assertGreater(abs(start[0]),abs(end[0]))
                     np.testing.assert_allclose((start+end)/2,hub,atol=1e-9)

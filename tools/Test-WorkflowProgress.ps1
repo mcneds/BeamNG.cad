@@ -29,6 +29,22 @@ public static class WorkflowProgressSmoke {
   if(bar.Visible||elapsed.IsRunning||label.Text!="")throw new Exception("Idle workflow must not show progress");
   lifecycle.Invoke(instance,new object[]{true});
   if(!bar.Visible||!elapsed.IsRunning||bar.Value!=0||label.Text!="Working...")throw new Exception("Task did not start with fresh progress");
+  var instruction="Choose a material for 66 unique bodies; click Apply, then Close.";
+  status.Text=instruction;
+  type.GetField("progressDetail",flags).SetValue(instance,instruction);
+  for(var tick=0;tick<2;tick++) {
+   flush.Invoke(instance,null);
+   var message=(string)type.GetProperty("TaskMessage",flags).GetValue(instance,null);
+   if(message.IndexOf(instruction,StringComparison.Ordinal)!=message.LastIndexOf(instruction,StringComparison.Ordinal)||!message.StartsWith(instruction+"\r\nElapsed ")||!label.Text.StartsWith("Elapsed "))throw new Exception("Material instruction duplicated or elapsed time has an empty prefix");
+  }
+  type.GetField("progressDetail",flags).SetValue(instance,"Inspecting material targets...");
+  flush.Invoke(instance,null);
+  if(!label.Text.StartsWith("Inspecting material targets...\r\nElapsed "))throw new Exception("Distinct progress detail lost or elapsed time has an empty batch separator");
+  type.GetField("batchDetail",flags).SetValue(instance,"Test batch 1 / 2");
+  flush.Invoke(instance,null);
+  if(!label.Text.StartsWith("Inspecting material targets...\r\nTest batch 1 / 2 | Elapsed "))throw new Exception("Batch detail or elapsed time lost");
+  type.GetField("batchDetail",flags).SetValue(instance,"");
+  status.Text="";
   method.Invoke(instance,new object[]{"CAD_PROGRESS {\"phase\":\"recording\",\"completed\":4,\"total\":8}"});
   if(bar.Value!=50||bar.Style!=ProgressBarStyle.Continuous)throw new Exception("Measured progress not displayed");
   method.Invoke(instance,new object[]{"CAD_PROGRESS {\"phase\":\"Material fit\",\"completed\":null,\"total\":null}"});
@@ -63,7 +79,7 @@ public static class WorkflowProgressSmoke {
    if(bar.Visible||label.Text!=finalText||elapsed.IsRunning)throw new Exception("Terminal result changed after "+result);
   }
   bar.Dispose();label.Dispose();status.Dispose();log.Dispose();
-  Console.WriteLine("PASS: measured/indeterminate progress, rejection, completion, cancellation, failure, late output, restart, and retained logs/results");
+  Console.WriteLine("PASS: material instruction deduplication, detail/batch/elapsed formatting, measured/indeterminate progress, rejection, completion, cancellation, failure, late output, restart, and retained logs/results");
  }
 }
 '@

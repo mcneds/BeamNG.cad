@@ -4,7 +4,14 @@ import numpy as np
 
 def validate(project,definition):
     workspace=project['JointWorkspace'];joints={j['Id']:j for j in workspace['Joints']};consumed=set()
+    active_requests=None
+    if project.get('Driveline'):
+        from joint_authoring import requests
+        active_requests={r['id'] for r in requests(project)}
+    for endpoint in (project.get('Driveline') or {}).get('endpoints',[]):
+        if endpoint.get('joint'):consumed.add(endpoint['joint'])
     for binding in workspace['Bindings']:
+        if active_requests is not None and binding['Request'] not in active_requests:continue
         if not binding.get('JointId'):continue
         joint=joints[binding['JointId']];request=binding['Request'];kind=joint['Kind'];consumed.add(joint['Id'])
         key=request.split('.',1)[-1];corner=request.split('.',1)[0]

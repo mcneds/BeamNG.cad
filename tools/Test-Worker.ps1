@@ -16,6 +16,37 @@ time.sleep(120)
 '@ | Set-Content -LiteralPath $script -Encoding UTF8
 $assembly = [Reflection.Assembly]::LoadFrom((Join-Path $OutputDirectory 'beamng.cad.dll'))
 $run = $assembly.GetType('BeamNG.Cad.FramePipeline.OwnedWorker', $true).GetMethod('RunWithScratch')
+# Exercise the real gated launcher from outside the worker's directory, including
+# nested entry points, arguments with spaces, and import-error reporting.
+$imports = Join-Path $folder 'nested worker'
+[void][IO.Directory]::CreateDirectory($imports)
+[IO.File]::WriteAllText((Join-Path $imports 'sibling.py'), 'VALUE = "sibling loaded"')
+$entry = Join-Path $imports 'entry.py'
+@'
+import sys
+from pathlib import Path
+from sibling import VALUE
+assert Path(sys.argv[0]).resolve() == Path(__file__).resolve()
+assert sys.argv[2] == 'argument with spaces'
+assert Path.cwd() != Path(__file__).parent
+Path(sys.argv[1]).write_text(VALUE)
+'@ | Set-Content -LiteralPath $entry -Encoding UTF8
+$importResult = Join-Path $folder 'import result.txt'
+$task = $run.Invoke($null, @([string]$PythonExecutable, [string]$entry, [string]('"'+$importResult+'" "argument with spaces"'), $null, [Threading.CancellationToken]::None, $null, [string]$folder))
+if(-not $task.Wait(15000)){throw 'Sibling import smoke test timed out'}
+if((Get-Content -LiteralPath $importResult -Raw) -ne 'sibling loaded'){throw 'Worker did not import its sibling module'}
+Write-Output 'PASS gated worker imports siblings from a nested script directory and preserves arguments'
+$prepare = Join-Path $OutputDirectory 'FramePipeline/prepare_frame.py'
+$task = $run.Invoke($null, @([string]$PythonExecutable, [string]$prepare, '--help', $null, [Threading.CancellationToken]::None, $null, [string]$folder))
+if(-not $task.Wait(15000)){throw 'Preparation import smoke test timed out'}
+Write-Output 'PASS shipped preparation entry point imports successfully through the gated worker'
+[IO.File]::WriteAllText($entry, 'import deliberately_missing_worker_smoke_module')
+$task = $run.Invoke($null, @([string]$PythonExecutable, [string]$entry, '', $null, [Threading.CancellationToken]::None, $null, [string]$folder))
+try { if(-not $task.Wait(15000)){throw 'Import failure smoke test timed out'}; throw 'Missing import unexpectedly succeeded' }
+catch {
+    if(-not $task.IsFaulted -or $task.Exception.InnerException.Message -notlike "ModuleNotFoundError:*deliberately_missing_worker_smoke_module*"){throw}
+}
+Write-Output 'PASS missing-module failure includes the actual import error'
 $signal = Join-Path $folder 'started.txt'
 $cancel = New-Object Threading.CancellationTokenSource
 try {

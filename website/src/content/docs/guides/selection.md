@@ -5,7 +5,7 @@ sidebar:
   order: 2
 ---
 
-To locate a group you already assigned, open **Components / mounts → Components**,
+To locate a group you already assigned, open **Components**,
 select its row, and click **Show in SolidWorks** above the list. Double-clicking
 the row performs the same action. **Zoom to group** frames the highlighted
 selection; uncheck it to keep your current view.

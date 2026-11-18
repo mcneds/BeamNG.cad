@@ -82,7 +82,8 @@ def main():
     p.add_argument('--profile', type=Path, required=True)
     p.add_argument('--output', type=Path, required=True)
     p.add_argument('--scenario', choices=list(SCENARIOS)+['steady_speed'], default='acceleration')
-    p.add_argument('--target-speed', type=float, choices=[5.,10.,15.], help='Required for the nonqualifying steady_speed diagnostic, m/s')
+    p.add_argument('--target-speed', type=float, help='Required for steady_speed, in m/s (5 mph = 2.2352 m/s; maximum 15 m/s)')
+    p.add_argument('--coast-after',type=float,help='Release both pedals after 20..45 seconds of steady_speed; retain drivetrain gear')
     p.add_argument('--startup-timeout', type=float, default=180)
     p.add_argument('--test-timeout',type=float,default=120,help='Wall-clock allowance; does not change the simulation duration')
     p.add_argument('--physics-only',action='store_true',help='Nonqualifying low-memory fixture without props/flexbodies or DAE assets')
@@ -90,6 +91,7 @@ def main():
     p.add_argument('--neutral-settle', action='store_true', help='Nonqualifying isolation diagnostic: select Neutral for settle, preserving vehicle settings')
     p.add_argument('--deterministic', action='store_true', help='Explicit fixed 50 ms control cadence; physics remains 2000 Hz')
     p.add_argument('--frequency-window', type=float, nargs=2, metavar=('START','DURATION'), help='Bounded physics-step front suspension positions, diagnostic only')
+    p.add_argument('--frequency-corners',nargs='+',choices=['FL','FR','RL','RR'],default=['FL','FR'],help='Corners included in bounded positions; at most 80 nodes total')
     p.add_argument('--frequency-loads',action='store_true',help='Also record bounded native beam loads and node forces in the frequency window')
     p.add_argument('--frequency-wheels',action='store_true',help='Also record native wheel angular velocities and commanded torques in the bounded window')
     p.add_argument('--frequency-carriers',action='store_true',help='Include every front carrier node in the bounded capture for internal force accounting')
@@ -99,6 +101,10 @@ def main():
     a = p.parse_args()
     if (a.scenario=='steady_speed') != (a.target_speed is not None):p.error('Use --target-speed only with --scenario steady_speed')
     if a.scenario=='steady_speed' and not a.deterministic:p.error('Steady speed diagnostics require --deterministic for controller replay')
+    if a.target_speed is not None:
+        try:speed_settings(a.target_speed,a.coast_after)
+        except ValueError as exc:p.error(str(exc))
+    if a.coast_after is not None and a.scenario!='steady_speed':p.error('Coast requires steady_speed')
     duration=DURATION if a.scenario=='steady_speed' else SCENARIOS[a.scenario]
     if not 120<=a.test_timeout<=600:p.error('Test timeout must be between 120 and 600 seconds')
     if a.physics_only and a.mode!='null':p.error('Physics-only fixture requires the null renderer')
@@ -129,7 +135,7 @@ def main():
             target=session.root/'mods/unpacked/vehicle_harness/lua/vehicle/extensions/vehicleharness/recorder.lua'
             target.write_text(speed_instrument(target.read_text(encoding='utf-8')),encoding='utf-8')
             (a.output/'diagnostic_vehicle_recorder.lua').write_bytes(target.read_bytes())
-            result['steady_speed']=speed_settings(a.target_speed)
+            result['steady_speed']=speed_settings(a.target_speed,a.coast_after)
             result['controller_sha256']=hashlib.sha256((ROOT/'tools/steady_speed_control.py').read_bytes()).hexdigest()
         if a.neutral_settle:
             target=session.root/'mods/unpacked/vehicle_harness/lua/vehicle/extensions/vehicleharness/recorder.lua'
@@ -167,7 +173,7 @@ def main():
             spawn_z=manifest['spawn_z'], output='/settings/vehicle_harness/results/'+identity,
             manifest=manifest, motion_reference=reference(manifest), fixture_fixed_nodes=[],
             expected_beams=expected, changed_files=changed, staging_bytes=written)
-        if a.scenario=='steady_speed':job['steady_speed']=speed_settings(a.target_speed)
+        if a.scenario=='steady_speed':job['steady_speed']=speed_settings(a.target_speed,a.coast_after)
         if a.diagnostic_drop:
             job.update(spawn_z=job['spawn_z']+3.,drop_height_m=3.,diagnostic='drop')
             result['drop_height_m']=3.
@@ -182,7 +188,7 @@ def main():
                 indices.append(int(np.argmax(distances)))
             datum=[chassis[i] for i in indices]
             selected=set(datum)
-            for corner in ('FL','FR'):
+            for corner in dict.fromkeys(a.frequency_corners):
                 mapping=job['motion_reference']['corners'][corner]
                 selected.update(mapping['points'].values());selected.update(mapping['axis'])
             if a.frequency_carriers:

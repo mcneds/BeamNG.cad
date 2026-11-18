@@ -17,7 +17,9 @@ namespace BeamNG.Cad.FramePipeline
         {
             return Task.Run(() => {
                 token.ThrowIfCancellationRequested();
-                var bootstrap = "import sys,runpy;sys.stdin.readline();sys.argv=sys.argv[1:];runpy.run_path(sys.argv[0],run_name='__main__')";
+                // run_path on a file does not add its directory to sys.path as
+                // direct script execution does. Workers import sibling modules.
+                var bootstrap = "import sys,runpy,os;sys.stdin.readline();sys.argv=sys.argv[1:];sys.path.insert(0,os.path.dirname(os.path.abspath(sys.argv[0])));runpy.run_path(sys.argv[0],run_name='__main__')";
                 var start = new ProcessStartInfo(python, "-X utf8 -u -c " + Quote(bootstrap) + " " + Quote(script) + " " + arguments)
                 { UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true };
                 if(scratchRoot!=null)BuildStorage.ConfigureScratch(start,scratchRoot);
@@ -28,7 +30,7 @@ namespace BeamNG.Cad.FramePipeline
                     process.OutputDataReceived += (s,e) => { if (e.Data != null) log?.Report(e.Data); };
                     process.ErrorDataReceived += (s,e) => { if (e.Data != null) {
                         log?.Report(e.Data);
-                        if(e.Data.StartsWith("RuntimeError:") || e.Data.StartsWith("ValueError:") || e.Data.StartsWith("FileNotFoundError:")) errorDetail=e.Data;
+                        if(e.Data.StartsWith("RuntimeError:") || e.Data.StartsWith("ValueError:") || e.Data.StartsWith("FileNotFoundError:") || e.Data.StartsWith("ImportError:") || e.Data.StartsWith("ModuleNotFoundError:")) errorDetail=e.Data;
                     } };
                     process.Start();
                     try { job.Assign(process.Handle); }

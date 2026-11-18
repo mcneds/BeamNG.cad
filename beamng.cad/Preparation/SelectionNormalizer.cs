@@ -6,6 +6,12 @@ using SolidWorks.Interop.swconst;
 
 namespace BeamNG.Cad.Preparation
 {
+    internal sealed class LightweightComponentException : InvalidOperationException
+    {
+        public LightweightComponentException(string name)
+            : base("Component is lightweight (not suppressed): "+name+". Run a selection/material action to load its model data.") {}
+    }
+
     // Resolves only the requested component chain; never unsuppresses geometry.
     internal sealed class SelectionNormalizer
     {
@@ -37,7 +43,7 @@ namespace BeamNG.Cad.Preparation
             if(state==swComponentSuppressionState_e.swComponentResolved || state==swComponentSuppressionState_e.swComponentFullyResolved)return component;
             if(state!=swComponentSuppressionState_e.swComponentLightweight && state!=swComponentSuppressionState_e.swComponentFullyLightweight)
                 throw new InvalidOperationException("Unknown component loading state "+(int)state+": "+component.Name2);
-            if(!load)throw new InvalidOperationException("Component is lightweight (not suppressed): "+component.Name2+". Run a selection/material action to load its model data.");
+            if(!load)throw new LightweightComponentException(component.Name2);
             var reference=Reference(component);var name=component.Name2;
             var parent=component.GetParent() as Component2;
             if(parent!=null)Available(parent,true);

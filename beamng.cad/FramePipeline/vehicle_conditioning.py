@@ -167,6 +167,10 @@ def allocate_support_mass(graph, corners, engine_reactions, parameters):
         for key in ('axis_in','axis_out'):request(wheel['nodes'][key],corner+':'+key)
         for key,node in wheel.get('reaction_nodes',{}).items():request(node,corner+':'+key)
     for node in engine_reactions:request(node,'engine torque reaction')
+    for section in getattr(graph,'driveline_physics',{}).get('sections',[]):
+        for node in section['endpoints']:request(node,'driveline shaft joint')
+    for rail in getattr(graph,'driveline_physics',{}).get('rails',[]):
+        for key in ('a','b','slider'):request(rail[key],'driveline sliding interface')
     for node in getattr(graph,'rigidifier_nodes',()):request(node,'internal non-colliding member rigidifier')
     # Both sides of a mechanical joint receive its forces. In particular,
     # spherical shaft supports can select residual CAD-moment nodes on a

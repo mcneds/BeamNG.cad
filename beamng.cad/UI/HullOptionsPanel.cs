@@ -24,10 +24,9 @@ namespace BeamNG.Cad.UI
         public HullOptionsPanel()
         {
             AutoScroll=true; Dock=DockStyle.Fill; Padding=new Padding(10);
-            var table=new TableLayoutPanel { Dock=DockStyle.Top,AutoSize=true,ColumnCount=3,Padding=new Padding(0,0,15,10) };
-            table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,155));
-            table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,115));
+            var table=new TableLayoutPanel { Dock=DockStyle.Top,AutoSize=true,ColumnCount=2,Padding=new Padding(0,0,15,10) };
             table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,115));
             Controls.Add(table);
             Section(table,"Coordinates");
             Row(table,"Automatic conversion",new Label {Text="Y-up → Z-up",AutoSize=true},
@@ -44,13 +43,13 @@ namespace BeamNG.Cad.UI
             Row(table,"Offset ratio",ratio,"Proxy offset = alpha / ratio. This controls the closed volume used to prune the grid.");
             Section(table,"Symmetry");
             var symmetryRow=table.RowCount++;table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            table.Controls.Add(symmetry,0,symmetryRow);table.SetColumnSpan(symmetry,3);
+            table.Controls.Add(symmetry,0,symmetryRow);table.SetColumnSpan(symmetry,2);
             var flipRow=table.RowCount++;table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            table.Controls.Add(flip,0,flipRow);table.SetColumnSpan(flip,3);
+            table.Controls.Add(flip,0,flipRow);table.SetColumnSpan(flip,2);
             Row(table,"Seam merge (m)",merge,"Merge mirrored vertices at the X centre of the selection bounds.");
             var reset=new Button { Name="ResetHullDefaults",Text="Reset hull defaults",AutoSize=true };
             var resetRow=table.RowCount++;table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            table.Controls.Add(reset,0,resetRow);table.SetColumnSpan(reset,3);
+            table.Controls.Add(reset,0,resetRow);table.SetColumnSpan(reset,2);
             reset.Click+=(s,e)=> { Value=new HullOptions(); Changed(); };
             foreach(var number in new[]{width,height,length,offset,weld,divisor,ratio,merge}) number.ValueChanged+=(s,e)=>Changed();
             symmetry.CheckedChanged+=(s,e)=>Changed();flip.CheckedChanged+=(s,e)=>Changed();
@@ -88,14 +87,16 @@ namespace BeamNG.Cad.UI
         {
             var row=table.RowCount++;table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             var label=new Label { Text=title,AutoSize=true,Font=new Font(SystemFonts.MessageBoxFont,FontStyle.Bold),Margin=new Padding(3,14,3,6) };
-            table.Controls.Add(label,0,row);table.SetColumnSpan(label,3);
+            table.Controls.Add(label,0,row);table.SetColumnSpan(label,2);
         }
         private static void Row(TableLayoutPanel table,string title,Control input,string help)
         {
             var row=table.RowCount++;table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             table.Controls.Add(new Label { Text=title,AutoSize=true,Margin=new Padding(3,8,3,5) },0,row);
             table.Controls.Add(input,1,row);
-            table.Controls.Add(new Label { Text=help,AutoSize=true,Dock=DockStyle.Fill,Margin=new Padding(6,7,3,6) },2,row);
+            var description=new Label { Text=help,AutoSize=true,Dock=DockStyle.Fill,Margin=new Padding(3,0,3,6) };
+            var helpRow=table.RowCount++;table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.Controls.Add(description,0,helpRow);table.SetColumnSpan(description,2);
         }
     }
 }

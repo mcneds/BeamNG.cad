@@ -50,6 +50,34 @@ public static class AssignmentStateTest {
   state.GetMethod("UpdateStatus").Invoke(null,new[]{project});Check(((string)physical.GetType().GetProperty("AssignmentSummary").GetValue(physical)).Contains("Appearance: uses CAD"),"physical CAD supplies the default appearance without a false missing warning");
   var split=New(code,"CoiloverAppearance");var piece=New(code,"CoiloverMeshAssignment");Put(piece,"Kind","shaft");Put(piece,"Selections",Get(selection,"Selections"));((IList)Get(split,"Pieces")).Add(piece);Put(physical,"AppearanceCoilover",split);Put(physical,"AppearancePackageState","pending");
   state.GetMethod("UpdateStatus").Invoke(null,new[]{project});Check(((string)physical.GetType().GetProperty("AssignmentSummary").GetValue(physical)).Contains("Appearance: coilover 1/3 (pending)"),"incomplete moving-piece assignments are distinguished from CAD fallback");
+  var group=New(code,"ComponentDefinition");Put(group,"Name","Append fixture");((IList)Get(project,"Components")).Add(group);
+  var physicalIds=new System.Collections.Generic.List<string>{"body-a"};
+  var combined=state.GetMethod("CombinedPhysical").Invoke(null,new[]{group,selection,(object)document});
+  state.GetMethod("Physical").Invoke(null,new object[]{project,group,combined,physicalIds,document});
+  Check(((IList)Get(group,"Selections")).Count==1,"add to an empty group saves its first selection");
+  combined=state.GetMethod("CombinedPhysical").Invoke(null,new[]{group,selection,(object)document});
+  Check(((IList)Get(combined,"Selections")).Count==1,"adding an existing reference does not duplicate it");
+  var extra=New(code,"FrameAssignment");Put(extra,"Configuration","Default");
+  var extraRef=New(code,"SelectionReference");Put(extraRef,"Kind","body");Put(extraRef,"Reference","body-b-ref");Put(extraRef,"ComponentReference","instance-b");((IList)Get(extra,"Selections")).Add(extraRef);
+  combined=state.GetMethod("CombinedPhysical").Invoke(null,new[]{group,extra,(object)document});
+  Check(((IList)Get(combined,"Selections")).Count==2&&((IList)Get(group,"Selections")).Count==1,"append prepares a union without mutating the saved group");
+  var conflict=New(code,"ComponentDefinition");Put(conflict,"Name","Other owner");Put(conflict,"BodyIds",new System.Collections.Generic.List<string>{"body-b"});((IList)Get(project,"Components")).Add(conflict);
+  try{state.GetMethod("Physical").Invoke(null,new object[]{project,group,combined,new System.Collections.Generic.List<string>{"body-a","body-b"},document});throw new Exception("Expected conflict");}
+  catch(TargetInvocationException e){Check(e.InnerException is InvalidOperationException&&((IList)Get(group,"Selections")).Count==1&&((IList)Get(group,"BodyIds")).Count==1,"ownership conflict preserves the saved assignment");}
+  ((IList)Get(project,"Components")).Remove(conflict);
+  state.GetMethod("Physical").Invoke(null,new object[]{project,group,combined,new System.Collections.Generic.List<string>{"body-a","body-b"},document});
+  Check(((IList)Get(group,"Selections")).Count==2&&((IList)Get(group,"BodyIds")).Count==2,"append retains old bodies and commits new bodies");
+  Put(extra,"Configuration","Other");
+  try{state.GetMethod("CombinedPhysical").Invoke(null,new[]{group,extra,(object)document});throw new Exception("Expected configuration refusal");}
+  catch(TargetInvocationException e){Check(e.InnerException is InvalidOperationException,"append rejects a different configuration");}
+  Put(extra,"Configuration","Default");
+  try{state.GetMethod("CombinedPhysical").Invoke(null,new[]{group,extra,(object)Path.Combine(output,"other.SLDASM")});throw new Exception("Expected document refusal");}
+  catch(TargetInvocationException e){Check(e.InnerException is InvalidOperationException,"append rejects a different assembly");}
+  projectType.GetMethod("Save").Invoke(project,null);var appended=projectType.GetMethod("Load").Invoke(null,new object[]{path});
+  var savedGroup=((IEnumerable)Get(appended,"Components")).Cast<object>().Single(c=>(string)Get(c,"Name")=="Append fixture");
+  Check(((IList)Get(savedGroup,"Selections")).Count==2&&((IList)Get(savedGroup,"BodyIds")).Count==2,"appended CAD ownership survives project reload");
+  state.GetMethod("Physical").Invoke(null,new object[]{project,group,extra,new System.Collections.Generic.List<string>{"body-b"},document});
+  Check(((IList)Get(group,"Selections")).Count==1&&((IList)Get(group,"BodyIds")).Count==1,"set to selected still replaces the saved assignment");
   using(var form=new Form {Text="Saved assignment status",Width=850,Height=650}){
    var list=(ListBox)Activator.CreateInstance(code.GetType("BeamNG.Cad.UI.ComponentAssignmentList"),true);list.Dock=DockStyle.Left;list.Width=285;list.DataSource=((IEnumerable)Get(project,"Components")).Cast<object>().Concat(groups.Take(8)).ToList();
    form.Controls.Add(list);form.Show();Application.DoEvents();

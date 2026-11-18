@@ -5,7 +5,7 @@ sidebar:
   order: 9
 ---
 
-**Components / mounts → Vehicle setup / MVP** determines which CAD groups are
+**Project → Vehicle layout and project tools...** determines which CAD groups are
 required. The first configuration has front double wishbones, rear two-point
 trailing arms, and a CVT driving the rear final drive with a geared front output.
 The second has front and rear wishbones with CVT rear drive. Their inventories
@@ -14,7 +14,7 @@ locating-link roles. Tags outside the active configuration remain visible for re
 
 1. Choose the configuration and **Start fresh from CAD**, or **Apply vehicle
    setup** in an existing fresh project. Select a required row, select CAD, and
-   **Assign current selection** or **Assign whole components**. Use **New tagged
+   **Set to selected** or **Assign whole components**. Use **New tagged
    group** for an additional repeated group.
    The frame uses **Use saved frame**. Solid bodies, surface bodies, faces and body
    folders are supported; unrelated features do not silently select whole components.
@@ -71,6 +71,25 @@ Every revision has a parent receipt, separate physical/appearance hashes, and a
 new output directory. Property changes require new verification. Frame property
 changes use the independent frame reference workflow; a generic component mass
 fit cannot qualify a frame's elastic response.
+
+## Steering-wheel animation
+
+A rigid steering-wheel mesh can follow BeamNG's `steering` electric without adding
+nodes or changing its physical mounts, mass, steering linkage or suspension.
+The saved `SteeringAppearance` setting records its visual pivot, axis, neutral
+orientation and captured-geometry fingerprint. It describes an animation, not a
+physical steering column or a measured real-car steering ratio.
+
+The advanced `tools/animate-steering-wheel.py` command takes a completed receipt,
+`--component <component-id>` and a fresh `--output <directory>`. It fits the captured
+rim plane and circle, rejects ambiguous geometry, and creates an appearance-only
+revision with an identical physical snapshot. Review the neutral, left and right
+poses in the game before installing. Changed geometry requires a new pivot fit;
+ordinary appearance packaging and full generation retain a valid saved setting.
+
+This uses the game's existing steering angle. Matching a real vehicle's exact
+lock-to-lock travel requires a separately established steering ratio. See
+[BeamNG props](https://documentation.beamng.com/modding/vehicle/sections/props/).
 
 ## Import a reviewed baseline
 

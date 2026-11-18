@@ -12,6 +12,8 @@ using System.Diagnostics;
 using Xarial.XCad.Base.Attributes;
 using Xarial.XCad.Base.Enums;
 using Xarial.XCad.SolidWorks;
+using Xarial.XCad.SolidWorks.UI;
+using Xarial.XCad.UI.TaskPane;
 using Xarial.XCad.UI.Commands;                
 using Xarial.XCad.UI.Commands.Attributes;
 using Xarial.XCad.UI.Commands.Enums;
@@ -31,7 +33,35 @@ namespace BeamNG.Cad
             [Icon(typeof(CommandIcons), nameof(CommandIcons.Export))]
             [Title("Settings")]
             [CommandItemInfo(true, true, WorkspaceTypes_e.All, true)]
-            Settings = 20
+            Settings = 20,
+            [Icon(typeof(CommandIcons), nameof(CommandIcons.Export))]
+            [Title("Project")]
+            [CommandItemInfo(true,true,WorkspaceTypes_e.All,true)]
+            Project = 21,
+            [Icon(typeof(CommandIcons), nameof(CommandIcons.Export))]
+            [Title("Components")]
+            [CommandItemInfo(true,true,WorkspaceTypes_e.Assembly,true)]
+            Components = 22,
+            [Icon(typeof(CommandIcons), nameof(CommandIcons.Export))]
+            [Title("Joints")]
+            [CommandItemInfo(true,true,WorkspaceTypes_e.Assembly,true)]
+            Joints = 23,
+            [Icon(typeof(CommandIcons), nameof(CommandIcons.Export))]
+            [Title("Frame")]
+            [CommandItemInfo(true,true,WorkspaceTypes_e.Assembly,true)]
+            Frame = 24,
+            [Icon(typeof(CommandIcons), nameof(CommandIcons.Export))]
+            [Title("Build")]
+            [CommandItemInfo(true,true,WorkspaceTypes_e.Assembly,true)]
+            Build = 25,
+            [Icon(typeof(CommandIcons), nameof(CommandIcons.Export))]
+            [Title("Verify")]
+            [CommandItemInfo(true,true,WorkspaceTypes_e.Assembly,true)]
+            Verify = 26,
+            [Icon(typeof(CommandIcons), nameof(CommandIcons.Export))]
+            [Title("Delivery")]
+            [CommandItemInfo(true,true,WorkspaceTypes_e.All,true)]
+            Delivery = 27
         }
         [Title("Frame")]
         [CommandGroupInfo(2, "beamng.cad")]
@@ -65,7 +95,8 @@ namespace BeamNG.Cad
             [CommandItemInfo(true,true,WorkspaceTypes_e.All,true)]
             Open = 31
         }
-        private FrameWorkflow frameWindow;
+        private ISwTaskPane<DockedProjectHost> projectPane;
+        private ProjectWorkspace workspace;
         private bool installing;
         public override void OnConnect()
         {
@@ -77,18 +108,12 @@ namespace BeamNG.Cad
                     var selection = new FrameSelection(Application.Sw, model);
                     selection.Show(PreparationFile.Load(selection.Document).Frame(selection.Configuration));
                 } else {
-                    if(frameWindow != null && !frameWindow.IsDisposed) { frameWindow.Activate(); return; }
-                    frameWindow = new FrameWorkflow(Application.Sw, model);
-                    CreatePopupWindow(frameWindow).Show();
+                    OpenWorkspace(cmd==FrameCommands.Define?"Frame":"Build");
                 }
             });
             CommandManager.AddCommandGroup<ModCommands>().CommandClick += cmd => Guard(() => {
                 if(cmd == ModCommands.Install) {
-                    var current=new ExporterSettings(null);var model=Application.Documents.Active?.Model as ModelDoc2;
-                    var document=model?.GetPathName();
-                    var project=!string.IsNullOrEmpty(document)?current.ProjectForDocument(document):
-                        File.Exists(current.LastProjectPath)?VehicleProject.Load(current.LastProjectPath):null;
-                    CreatePopupWindow(new ModManager(current,null,project) {SolidWorksApplication=Application.Sw}).Show();
+                    OpenWorkspace("Delivery");
                 }
                 else {
                     var settings = new ExporterSettings(null);
@@ -96,18 +121,25 @@ namespace BeamNG.Cad
                     Process.Start(new ProcessStartInfo(Path.GetDirectoryName(settings.LastBuildReceipt)) { UseShellExecute=true });
                 }
             });
+
         }
         private void Guard(Action action) { try { action(); } catch(Exception e) { Application.ShowMessageBox(e.Message, MessageBoxIcon_e.Error); } }
-        private void OnButtonClick(Commands_e cmd)
+        private void OnButtonClick(Commands_e cmd)=>Guard(()=>OpenWorkspace(cmd==Commands_e.Project?"Overview":cmd.ToString()));
+        private void OpenWorkspace(string stage)
         {
-            Guard(() => {
-                using(var form = new Form { Text="beamng.cad - Settings", Width=800, Height=710, ShowInTaskbar=false }) {
-                    form.Controls.Add(new SettingsPanel(new ExporterSettings(null)) { AutoScroll=true });
-                    form.Controls.Add(new Label { Dock=DockStyle.Bottom, Height=50,
-                        Text="beamng.cad - SolidWorks frame preparation and static mod generation. Built with xCAD.NET.\r\nVersion " + typeof(MainSwAddIn).Assembly.GetName().Version });
-                    CreatePopupWindow(form).ShowDialog();
-                }
-            });
+            if(workspace==null||workspace.IsDisposed)
+            {
+                projectPane=CreateTaskPane<DockedProjectHost>(new TaskPaneSpec {Title="beamng.cad - Vehicle project"});
+                projectPane.Activated+=pane=>pane.Control.RefreshAfterDocking();
+                workspace=new ProjectWorkspace(Application.Sw);
+                projectPane.Control.Controls.Add(workspace);
+            }
+            projectPane.IsActive=true;workspace.Navigate(stage);
+            projectPane.Control.RefreshAfterDocking();
+        }
+        public override void OnDisconnect()
+        {
+            workspace?.StopTask();projectPane?.Dispose();workspace?.Dispose();workspace=null;projectPane=null;
         }
         private async void Install()
         {

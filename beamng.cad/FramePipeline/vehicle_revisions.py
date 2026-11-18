@@ -22,7 +22,7 @@ from frame_harness.build import node_table
 VISUAL_SECTIONS = frozenset(('information', 'flexbodies', 'props', 'cameras', 'cameraExternal', 'cameraChase'))
 PHYSICAL_MANIFEST = ('nodes', 'explicit_beams', 'chassis_nodes', 'wheels', 'mounts',
                      'expected_dry_mass_kg', 'expected_wheel_names', 'device_contract',
-                     'joints', 'vehicle_template_selection', 'fixed_nodes', 'mass_allocations', 'template_definition', 'required_controllers', 'torsionbars', 'shaft_chains', 'fixed_attachment_contract', 'numerical_mass', 'cad_dry_mass_kg', 'frame_locator_conditioning', 'frame_reference', 'alignment', 'wheel_support_reuse')
+                     'joints', 'vehicle_template_selection', 'fixed_nodes', 'mass_allocations', 'template_definition', 'required_controllers', 'torsionbars', 'shaft_chains', 'driveline_physics', 'fixed_attachment_contract', 'numerical_mass', 'cad_dry_mass_kg', 'frame_locator_conditioning', 'frame_reference', 'alignment', 'wheel_support_reuse')
 
 
 def canonical(value):
@@ -119,6 +119,8 @@ def package_revision(output, project, manifest, contents, provenance, parent_rec
     output = Path(output).resolve()
     if output.exists():
         raise FileExistsError('Use a fresh revision directory')
+    from vehicle_thumbnail import ensure
+    ensure(contents,project)
     # Reserve the unpacked assets plus a worst-case archive, provenance and
     # metadata. NTFS compression may need uncompressed space while a file is
     # open; its final allocation is not a safe packaging-space estimate.
@@ -188,6 +190,8 @@ def replace_appearance(project, component_ids, output):
         for owner in component_ids:
             if owner not in components or owner not in manifest.get('component_parts', {}):
                 raise ValueError('Appearance needs an existing stable physical component: ' + owner)
+            if any(s['component']==owner and s.get('member') for s in (manifest.get('driveline_physics') or {}).get('sections',[])):
+                raise ValueError(owner+': a combined appearance cannot replace independently moving shaft members; retain their CAD meshes or use separate section groups')
             part_id = manifest['component_parts'][owner]
             matches = [(name, json.loads(data)) for name, data in contents.items()
                        if name.endswith('.jbeam') and part_id in json.loads(data)]
@@ -195,13 +199,15 @@ def replace_appearance(project, component_ids, output):
                 raise ValueError('Physical part binding is ambiguous')
             name, parts = matches[0]
             part = parts[part_id]
-            rigid_appearance=(components[owner].get('RigidAppearance')
+            rigid_appearance=(components[owner].get('RigidAppearance') or manifest.get('component_reports',{}).get(owner,{}).get('render_as_rigid_prop')
                               or manifest.get('component_reports',{}).get(owner,{}).get('allocation_method')=='hardpoint_lumped')
             # Props validate a noncollinear three-node basis in render(); they
             # do not require the volumetric group used by flexbody locators.
             declared=manifest.get('render_bindings', {}).get(owner)
             groups = (declared or []) if rigid_appearance else binding_groups(part, declared)
             split=coilover_visuals.active(components[owner])
+            if (components[owner].get('SteeringAppearance') or {}).get('Enabled') and (not rigid_appearance or split or (manifest.get('component_roles',{}).get(owner) or '').endswith('_wheel')):
+                raise ValueError('Steering animation requires a rigid accessory appearance, not a tire, coilover or flexbody')
             if split:
                 meshes,mesh_names,props,flex,source,contract=coilover_visuals.render(components[owner],part,manifest,groups,manifest['model']+'__appearance_'+owner)
                 manifest.setdefault('coilover_render',{})[owner]=contract
@@ -221,7 +227,7 @@ def replace_appearance(project, component_ids, output):
                     from rigid_visuals import render as render_rigid
                     render_part=copy.deepcopy(part)
                     render_owner=components[owner].get('VisualParentId') or owner
-                    meshes,contract=render_rigid(render_owner,render_part,manifest['mass_allocations'],meshes,mesh_names)
+                    meshes,contract=render_rigid(render_owner,render_part,manifest['mass_allocations'],meshes,mesh_names,components[owner].get('SteeringAppearance'))
                     props=[row for row in render_part['props'][1:] if row[1] in mesh_names]
                     flex=[]
                     manifest.setdefault('rigid_render',{})[owner]=contract

@@ -10,8 +10,15 @@ spec=importlib.util.spec_from_file_location('steady_analysis',ROOT/'tools/analyz
 analysis=importlib.util.module_from_spec(spec);spec.loader.exec_module(analysis)
 
 class SteadySpeedTests(unittest.TestCase):
+    def test_coast_releases_both_pedals_without_windup(self):
+        config=settings(2.2352,30.)
+        for speed in (0.,2.2352,5.):
+            self.assertEqual(step(speed,30.,.05,.4,config),(0.,0.,.4))
+        self.assertGreater(step(0.,29.9,.05,.4,config)[0],0.)
+        for start in (19.,46.,float('nan')):
+            with self.assertRaises(ValueError):settings(2.2352,start)
     def test_controller_recovers_drag_change_without_simultaneous_pedals(self):
-        for target in (5.,10.,15.):
+        for target in (1.34112,2.2352,3.12928,5.,10.,15.):
             config=settings(target);speed=0.;integral=0.;history=[]
             for t in np.arange(0,55,.05):
                 throttle,brake,integral=step(speed,t,.05,integral,config)
@@ -26,6 +33,8 @@ class SteadySpeedTests(unittest.TestCase):
         throttle,brake,_=step(20,40,.05,integral,c)
         self.assertEqual(throttle,0);self.assertGreater(brake,0)
         with self.assertRaises(ValueError):settings(float('nan'))
+        for target in (True,0.,-1.,float('inf'),15.01):
+            with self.assertRaises(ValueError):settings(target)
     def test_hold_gate_excludes_transients_and_fragmented_holds(self):
         t=np.arange(.05,55.01,.05)
         speed=np.minimum(t/3,10.)

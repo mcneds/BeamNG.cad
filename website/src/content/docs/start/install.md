@@ -72,6 +72,8 @@ Use 64-bit Windows PowerShell. The script requires the machine-wide entry to exi
 
 Save CAD work and restart SolidWorks after replacing the DLL. Toggling the add-in cannot reliably unload its managed assembly. Enable **beamng.cad** in the SolidWorks add-ins dialog, then open a saved top-level assembly.
 
-Look for **Frame**, **Mod** and **Settings** actions on the beamng.cad CommandManager tab. Set up [tool paths and output folders](/start/settings/) before preparing geometry.
+Look for **Project**, **Components**, **Joints**, **Frame**, **Build**, **Verify**, **Delivery** and **Settings** on the beamng.cad CommandManager tab. These native SolidWorks commands select tasks in the docked beamng.cad Task Pane; they are not child windows of Define Frame. Focused review and file-selection dialogs still open separately. The previous Frame/Mod shortcuts route into the same panel.
+
+The panel starts without selecting a project or running generation. Choose **New from CAD?** for a separate project with unassigned groups, or resume/open existing work. Set up [tool paths and output folders](/start/settings/) before preparing geometry.
 
 If activation fails, check the effective DLL path, adjacent dependencies and [troubleshooting](/reference/troubleshooting/).

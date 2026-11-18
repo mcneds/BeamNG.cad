@@ -27,6 +27,8 @@ namespace BeamNG.Cad.UI
         private readonly ReferenceSkeleton reference;
         private VehicleProject project;
         private bool refreshing;
+        private Button captureAction,bindAction,approveAction,positionAction,highlightAction;
+        private readonly ToolTip requirements=new ToolTip();
         public event Action ScanRequested,NativeMateRequested,ValidateRequested,MembersRequested,ParametersRequested,AutoConnectRequested;
         public event Action<string> ModeChanged,ApproveRequested,PositioningRequested,HighlightRequested,OwnerSelected;
         public event Action<JointRequest> CaptureRequested,BindJointRequested;
@@ -41,6 +43,7 @@ namespace BeamNG.Cad.UI
             left.Controls.Add(list);left.Controls.Add(search);left.Controls.Add(summary);
             var right=new Panel {Dock=DockStyle.Fill};right.Controls.Add(inspector);right.Controls.Add(actions);right.Controls.Add(detail);
             split.Controls.Add(left,0,0);split.Controls.Add(right,1,0);Controls.Add(split);
+            split.Resize+=(s,e)=>ResponsiveLayout.Split(split,left,right,split.ClientSize.Width<760,160);
             var guide=new TabPage("Connection guide");guide.Controls.Add(reference);inspector.TabPages.Add(guide);
             points.Text="CAD reference points";fasteners.Text="Panel / accessory fasteners";inspector.TabPages.Add(points);inspector.TabPages.Add(fasteners);
             mode.Items.AddRange(new object[]{"Authored CAD joints","Reviewed template definition"});
@@ -49,16 +52,18 @@ namespace BeamNG.Cad.UI
             Add(toolbar,"Moving members",()=>MembersRequested?.Invoke());Add(toolbar,"Check definition",()=>ValidateRequested?.Invoke());Controls.Add(toolbar);
             Add(toolbar,"Physical parameters",()=>ParametersRequested?.Invoke());
             Add(toolbar,"Auto-connect…",()=>AutoConnectRequested?.Invoke());
-            Add(actions,"Capture selected CAD point",()=>{if(SelectedRequest!=null)CaptureRequested?.Invoke(SelectedRequest);});
-            Add(actions,"Bind reviewed joint",()=>{if(SelectedRequest!=null)BindJointRequested?.Invoke(SelectedRequest);});
-            Add(actions,"Approve joint",()=>{if(SelectedJoint!=null)ApproveRequested?.Invoke(SelectedJoint.Id);});
-            Add(actions,"Positioning only",()=>{if(SelectedJoint!=null)PositioningRequested?.Invoke(SelectedJoint.Id);});
-            Add(actions,"Highlight CAD",()=>{var e=list.SelectedItem as Entry;if(e!=null)HighlightRequested?.Invoke(e.Id);});
+            captureAction=ActionButton("Capture selected CAD point",()=>{if(SelectedRequest!=null)CaptureRequested?.Invoke(SelectedRequest);});
+            bindAction=ActionButton("Bind reviewed joint",()=>{if(SelectedRequest!=null)BindJointRequested?.Invoke(SelectedRequest);});
+            approveAction=ActionButton("Approve joint",()=>{if(SelectedJoint!=null)ApproveRequested?.Invoke(SelectedJoint.Id);});
+            positionAction=ActionButton("Positioning only",()=>{if(SelectedJoint!=null)PositioningRequested?.Invoke(SelectedJoint.Id);});
+            highlightAction=ActionButton("Highlight CAD",()=>{var e=list.SelectedItem as Entry;if(e!=null)HighlightRequested?.Invoke(e.Id);});
             search.TextChanged+=(s,e)=>Filter();list.SelectedIndexChanged+=(s,e)=>Selected();
             mode.SelectedIndexChanged+=(s,e)=>{if(!refreshing)ModeChanged?.Invoke(mode.SelectedIndex==0?"authored":"legacy");};
         }
         private static void Add(Control parent,string title,Action action)
         {var button=new Button {Text=title,AutoSize=true};button.Click+=(s,e)=>action();parent.Controls.Add(button);}
+        private Button ActionButton(string title,Action action)
+        {var button=new Button {Text=title,AutoSize=true,AccessibleName=title};button.Click+=(s,e)=>action();actions.Controls.Add(button);return button;}
         public void Configure(MvpCatalog catalog,VehicleProject value)
         {
             project=value;refreshing=true;mode.SelectedIndex=value.JointWorkspace.Mode=="authored"?0:1;refreshing=false;
@@ -109,8 +114,15 @@ namespace BeamNG.Cad.UI
             {
                 inspector.SelectedIndex=0;detail.Text=entry.Label+"\r\nCapture its CAD point, then bind the reviewed joint to retain distinct hinge pivots. A joint centre can also be used directly. Example coordinates in the guide are never assigned.";
             }
-            foreach(Button b in actions.Controls)
-                b.Enabled=b.Text=="Highlight CAD"||b.Text.Contains("point")||b.Text.Contains("centre")?entry.Request!=null||b.Text=="Highlight CAD":entry.Joint!=null;
+            captureAction.Enabled=entry.Request!=null;
+            var owners=project.Components.Where(c=>entry.Request!=null&&(entry.Request.Id.StartsWith(c.Id+".",StringComparison.Ordinal)||c.MvpRole==entry.Request.Role)).ToArray();
+            bindAction.Enabled=entry.Request!=null&&project.JointWorkspace.Joints.Any(j=>j.Status=="approved"&&j.Center?.Length==3&&owners.Any(c=>j.Parent==c.Id||j.Child==c.Id));
+            approveAction.Enabled=entry.Joint!=null&&string.IsNullOrEmpty(entry.Joint.Issue);
+            positionAction.Enabled=entry.Joint!=null;
+            highlightAction.Enabled=true;
+            requirements.SetToolTip(bindAction,bindAction.Enabled?"Bind an approved joint to this requested hardpoint.":"Select a hardpoint request and scan/approve a joint belonging to its component first.");
+            if(entry.Request!=null&&!bindAction.Enabled)detail.Text+="\r\nTo bind: scan and approve a joint on this request's component first.";
         }
+        protected override void Dispose(bool disposing){if(disposing)requirements.Dispose();base.Dispose(disposing);}
     }
 }

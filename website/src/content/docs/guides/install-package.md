@@ -24,6 +24,13 @@ Open **Manage Mod** for a frame or **Manage project mod** for a vehicle. Review 
 
 Use **Capture SolidWorks viewport**, choose an existing image, or **Use hull image**. Arrange the CAD view first. Managed selector images are normalized to 1024×576 without distortion.
 
+Vehicle revisions with available captured CAD and no existing selector image now
+include an automatically rendered **CAD preview**. Packaging writes both the
+vehicle and base-configuration thumbnails. This preview depicts saved CAD,
+not an in-game validation screenshot; textured faces use the image's average
+colour. Existing custom thumbnails are retained. Template receipts without
+available CAD still need a supplied image.
+
 **Save for future builds** stores defaults. **Apply to selected build** creates a package revision with the parent receipt retained.
 
 ## Install
@@ -42,4 +49,3 @@ Changing a display name keeps the project namespace; importing/forking physics c
 The selected and installed ZIP hashes agree. This confirms the files on disk, not which vehicle is currently spawned in BeamNG. Installation neither launches acceptance nor promotes a failed diagnostic package to qualified status.
 
 Keep the receipt and referenced build assets for rollback. Select a previous receipt to return to an older reviewed package.
-

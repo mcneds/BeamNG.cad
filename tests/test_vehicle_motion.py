@@ -53,6 +53,20 @@ def fixture(variant='primary', steer=.0, rear_extension=.0, rack=False):
 
 
 class VehicleMotionTests(unittest.TestCase):
+    def test_telescopic_joint_measures_only_excess_travel(self):
+        manifest,motion=fixture()
+        a,b=manifest['chassis_nodes'][:2]
+        manifest['nodes']['shaft_end']=copy.deepcopy(manifest['nodes'][b])
+        manifest.setdefault('joints',[]).append(dict(id='plunge',kind='telescopic',nodes=[a,'shaft_end'],travel_m=.08))
+        for extension,expected in ((.03,True),(.05,False)):
+            for sample in motion['samples']:
+                positions=sample['reference_positions']
+                line=np.array(positions[b])-positions[a]
+                positions['shaft_end']=(np.array(positions[b])+extension*line/np.linalg.norm(line)).tolist()
+            result=compare(manifest,motion,'settle')
+            self.assertEqual(result['checks']['plunge_shaft_length_holds'],expected)
+            self.assertAlmostEqual(result['metrics']['plunge_peak_beyond_plunge_m'],max(0,extension-.04))
+
     def test_fixed_part_drift_fails_even_without_shape_change(self):
         manifest,motion=fixture()
         host=manifest['chassis_nodes'][0]

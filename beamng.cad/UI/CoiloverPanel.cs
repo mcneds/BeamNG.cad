@@ -17,7 +17,7 @@ namespace BeamNG.Cad.UI
         private readonly NumericUpDown mainRate=Number("MainSpringRate",30),tenderRate=Number("TenderSpringRate",15),crossover=Number("CrossoverCompression",10);
         private bool loading;
         public event Action AssignRequested,ShowRequested,ClearRequested,MountChanged;
-        public event Action SpringSaveRequested;
+        public event Action SpringChanged;
         public CoiloverSpring SpringSettings=>new CoiloverSpring {Mode=springMode.SelectedIndex==1?"dual_rate":"auto",MainRateNPerM=(double)mainRate.Value*1000,TenderRateNPerM=(double)tenderRate.Value*1000,CrossoverCompressionM=(double)crossover.Value/1000};
         public string Kind=>CoiloverAppearance.Kinds[Math.Max(0,pieces.SelectedIndex)];
         public string HousingMount=>mount.SelectedIndex==1?"bottom":"top";
@@ -34,8 +34,9 @@ namespace BeamNG.Cad.UI
             springMode.Items.AddRange(new object[]{"Automatic single-rate spring","Two-stage springs with crossover"});springMode.SelectedIndex=0;springControls.Controls.Add(springMode);
             Field("Main spring rate (N/mm)",mainRate);Field("Tender spring rate (N/mm)",tenderRate);Field("Crossover bump from CAD ride position (mm)",crossover);
             springControls.Controls.Add(new Label {AutoSize=true,MaximumSize=new Size(480,0),Text="Enter your hardware values; the displayed starting values are examples. Both coils may share the Spring mesh slot. Individual tender lockup/crossover-collar animation is not yet modeled."});
-            var save=new Button {Text="Save spring settings",AutoSize=true};save.Click+=(s,e)=>SpringSaveRequested?.Invoke();springControls.Controls.Add(save);
-            springMode.SelectedIndexChanged+=(s,e)=>{mainRate.Enabled=tenderRate.Enabled=crossover.Enabled=springMode.SelectedIndex==1;};
+            springControls.Controls.Add(new Label {Text="Apply spring edits with Apply component changes below.",AutoSize=true});
+            foreach(var number in new[]{mainRate,tenderRate,crossover})number.ValueChanged+=(s,e)=>{if(!loading)SpringChanged?.Invoke();};
+            springMode.SelectedIndexChanged+=(s,e)=>{mainRate.Enabled=tenderRate.Enabled=crossover.Enabled=springMode.SelectedIndex==1;if(!loading)SpringChanged?.Invoke();};
         }
         private static NumericUpDown Number(string name,decimal value)=>new NumericUpDown {Name=name,Minimum=.001m,Maximum=100000,DecimalPlaces=3,Value=value,Width=100};
         private void Field(string text,Control value){var row=new FlowLayoutPanel {AutoSize=true,WrapContents=false};row.Controls.Add(new Label {Text=text,Width=290,Height=26});row.Controls.Add(value);springControls.Controls.Add(row);}

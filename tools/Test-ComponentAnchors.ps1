@@ -1,5 +1,7 @@
-param([string]$OutputDirectory=(Join-Path $PSScriptRoot '..\beamng.cad\bin\vehicle-system'),[switch]$SurfaceCases)
+param([string]$OutputDirectory=(Join-Path $PSScriptRoot '..\beamng.cad\bin\vehicle-system'),[switch]$SurfaceCases,[string]$PythonExecutable)
 $ErrorActionPreference='Stop'
+if(-not $PythonExecutable){$PythonExecutable=(Get-Command python.exe -CommandType Application | Select-Object -First 1).Source}
+$PythonExecutable=(Resolve-Path -LiteralPath $PythonExecutable).Path
 $OutputDirectory=(Resolve-Path -LiteralPath $OutputDirectory).Path
 $root=Join-Path $OutputDirectory ('native-components-'+[Guid]::NewGuid().ToString('N'))
 [void][IO.Directory]::CreateDirectory($root)
@@ -73,7 +75,7 @@ public static class ComponentNativeTest {
   await Task.Delay(10);var active=app.ActiveDoc;
   Console.WriteLine("After UI yield: managed equality="+ReferenceEquals(active,model)+", native equality="+app.IsSame(active,model)+", apartment="+Thread.CurrentThread.GetApartmentState());
  }
- public static void Run(object appValue,string dll,string folder,bool surfaces){
+ public static void Run(object appValue,string dll,string folder,bool surfaces,string python){
   var app=(ISldWorks)appValue;
   using(var writer=new StreamWriter(Path.Combine(folder,"native-tests.log"))){writer.AutoFlush=true;var old=Console.Out;Console.SetOut(writer);
    try{
@@ -111,7 +113,7 @@ public static class ComponentNativeTest {
     ((IList)Get(anchor,"References"))[0]=Convert.ToBase64String(new byte[]{1,2,3});rejected=false;try{Call(service,"Update",anchor);}catch(TargetInvocationException){rejected=true;}Check(rejected && (string)Get(anchor,"Status")=="needs_repair","missing persistent reference requires repair");
     var settings=Create(code,"UI.ExporterSettings",Path.Combine(folder,"settings.xml"));
     settings.GetType().GetProperty("FrameOutput").SetValue(settings,Path.Combine(folder,"builds"),null);
-    settings.GetType().GetProperty("CalibrationPythonExecutable").SetValue(settings,@"H:\beamng project programs\BeamNG.cad\.venv\Scripts\python.exe",null);Call(settings,"Save");
+    settings.GetType().GetProperty("CalibrationPythonExecutable").SetValue(settings,python,null);Call(settings,"Save");
     Check(c.Select4(false,null,false),"fixture reselected for component UI");
     Body2 sheet=null;
     if(surfaces){
@@ -128,7 +130,7 @@ public static class ComponentNativeTest {
     using(var form=(Form)Create(code,"UI.ComponentWorkflow",app,model,settings)){
      form.Show();Application.DoEvents();var identity=ObserveIdentity(app,model);while(!identity.IsCompleted){Application.DoEvents();Thread.Sleep(10);}identity.GetAwaiter().GetResult();
      ((ComboBox)form.GetType().GetField("template",BindingFlags.NonPublic|BindingFlags.Instance).GetValue(form)).SelectedItem="bulk";
-     Click(form,"Assign current selection");
+     Click(form,"Set to selected");
      var list=(ListBox)form.Controls.Find("Components",true).Single();Check(list.Items.Count==1,"component UI saves ownership");
      var component=list.Items[0];var active=app.ActiveDoc as ModelDoc2;
      Check(Directory.Exists((string)Get(component,"GeometryDirectory")),"component UI exports native geometry (active="+(active==null?"none":active.GetPathName())+"): "+form.Controls.Find("ComponentLog",true).Single().Text);
@@ -145,7 +147,7 @@ public static class ComponentNativeTest {
       Role(form,"engine");Click(form,"Save parameters");Check((string)Get(component,"MvpRole")=="engine","existing assignment tagged");
       Role(form,"panel");Click(form,"New tagged group");
       ((NumericUpDown)Find(form,"SurfaceThickness")).Value=2;
-      Select(model,((object[])sheet.GetFaces())[0]);Click(form,"Assign current selection");
+      Select(model,((object[])sheet.GetFaces())[0]);Click(form,"Set to selected");
       Check(list.Items.Count==2,"surface assignment created");var skin=list.SelectedItem;
       Check((double)Get(skin,"Thickness")==.002 && (string)Get(skin,"MvpRole")=="panel","new group preserves thickness and role");
       Click(form,"Generate / preview");
@@ -188,7 +190,7 @@ try {
     do {$app=[ComponentNativeTest]::Find($ownedPid);if(-not $app){Start-Sleep -Milliseconds 500}}while(-not $app -and (Get-Date) -lt $until)
     if(-not $app){throw 'Owned SolidWorks instance did not register'}
     Write-Output "TEST_PROCESS=$ownedPid EVIDENCE=$root"
-    [ComponentNativeTest]::Run($app,(Join-Path $OutputDirectory 'beamng.cad.dll'),$root,[bool]$SurfaceCases)
+    [ComponentNativeTest]::Run($app,(Join-Path $OutputDirectory 'beamng.cad.dll'),$root,[bool]$SurfaceCases,$PythonExecutable)
     Get-Content -LiteralPath (Join-Path $root 'native-tests.log')
     if((Get-Content -LiteralPath (Join-Path $root 'result.txt') -Raw) -ne 'PASS'){throw 'Native component tests failed'}
 } finally {

@@ -23,23 +23,33 @@ def definition_for_project(project):
     if (project.get('JointWorkspace') or {}).get('Mode')=='authored':
         from joint_authoring import definition
         result=definition(project)
-        from shaft_chains import validate
-        validate(result,project['Components'])
+        if not result.get('driveline'):
+            from shaft_chains import validate
+            validate(result,project['Components'])
         return result
     path=Path(project.get('TemplateDefinitionPath') or '')
     if not path.is_file():raise ValueError('Choose a reviewed vehicle template definition with hardpoints and mounts')
     definition=read(path)
-    if definition.get('kind')!='vehicle_template' or definition.get('version')!=1:raise ValueError('Unsupported vehicle template definition')
+    if definition.get('kind')!='vehicle_template' or definition.get('version') not in (1,2):raise ValueError('Unsupported vehicle template definition')
+    if project.get('Driveline'):
+        from driveline import resolve
+        definition=copy.deepcopy(definition)
+        definition.update(version=2,driveline=resolve(project),shafts={},halfshafts={},shaft_chains={})
     chosen={v['Category']:v['Template'] for v in project.get('MvpTemplates',[])}
-    if chosen!=definition['templates']:raise ValueError('Vehicle setup changed; regenerate the template hardpoints and frame mounting plan')
-    from shaft_chains import validate
-    validate(definition,project['Components'])
+    if definition.get('driveline'):
+        if {k:v for k,v in chosen.items() if k!='drivetrain'}!={k:v for k,v in definition['templates'].items() if k!='drivetrain'}:raise ValueError('Suspension setup changed; review the definition')
+        from driveline import validate
+        validate(definition['driveline'],project)
+    else:
+        if chosen!=definition['templates']:raise ValueError('Vehicle setup changed; regenerate the template hardpoints and frame mounting plan')
+        from shaft_chains import validate
+        validate(definition,project['Components'])
     return definition
 
 
 def template_input(project):
     definition=definition_for_project(project)
-    raw=canonical(definition) if (project.get('JointWorkspace') or {}).get('Mode')=='authored' else Path(project['TemplateDefinitionPath']).read_bytes()
+    raw=canonical(definition) if (project.get('JointWorkspace') or {}).get('Mode')=='authored' or project.get('Driveline') else Path(project['TemplateDefinitionPath']).read_bytes()
     if read_bytes(raw)!=definition:raise ValueError('Template changed during intake')
     return definition,raw
 
@@ -57,7 +67,7 @@ def build(project_path,output,cgal=None,save_report=False):
     implementation={name:p.read_bytes() for name,p in sources.items()}
     project=read(project_path);definition,template_bytes=template_input(project)
     project_fingerprint=c.fingerprint(project)
-    validate_project(project)
+    validate_project(project,definition.get('driveline'))
     receipt=Path(project.get('FrameBuildReceipt') or '')
     record,archive=completed_build(receipt)
     if record.get('identity')!=project['Identity']:raise ValueError('The calibrated frame belongs to a different project')
@@ -100,7 +110,7 @@ def build(project_path,output,cgal=None,save_report=False):
     part.setdefault('flexbodies',[['mesh','[group]:','nonFlexMaterials']])
     component_meshes={frame['Id']:[r[0] for r in part['flexbodies'][1:] if isinstance(r,list)]}
     bindings[frame['Id']]=['frame_structure']
-    cad_materials={};coilover_render={};coilover_inputs={};wheel_render={}
+    cad_materials={};coilover_render={};coilover_inputs={};wheel_render={};rigid_render={}
     for index,comp in enumerate(project['Components']):
         emit('Package component meshes',completed=index,total=len(project['Components']),detail=comp['Name'])
         owner=comp['Id']
@@ -116,6 +126,10 @@ def build(project_path,output,cgal=None,save_report=False):
                 groups={g for v in graph.nodes.values() for g in v['options'].get('group',[]) if g==member+'_structure'}
                 if not groups:raise ValueError(comp['Name']+': chosen moving member has no render binding')
                 bindings[owner]=sorted(groups)
+        rigid_appearance=(comp.get('RigidAppearance') or graph.reports.get(owner,{}).get('render_as_rigid_prop') or owner in graph.fixed_attachment_contract
+                          or graph.reports.get(owner,{}).get('allocation_method')=='hardpoint_lumped')
+        if (comp.get('SteeringAppearance') or {}).get('Enabled') and (not rigid_appearance or coilover_visuals.active(comp) or (comp.get('MvpRole') or '').endswith('_wheel') or owner in getattr(graph,'moving_render',{})):
+            raise ValueError('Steering animation requires a rigid accessory appearance')
         names=[]
         if owner in getattr(graph,'moving_render',{}):
             moving=[]
@@ -136,11 +150,10 @@ def build(project_path,output,cgal=None,save_report=False):
                 corner=comp['MvpRole'].removesuffix('_wheel').upper()
                 flex,wheel_render[owner]=render_wheel(part,corner,meshes[owner],names,comp.get('WheelVisualRoles'))
                 part['flexbodies'].extend(flex)
-            elif (comp.get('RigidAppearance') or owner in graph.fixed_attachment_contract
-                  or graph.reports.get(owner,{}).get('allocation_method')=='hardpoint_lumped'):
+            elif rigid_appearance:
                 from rigid_visuals import render as render_rigid
                 render_owner=comp['VisualParentId'] if visual(comp) else owner
-                meshes[owner],_=render_rigid(render_owner,part,graph.mass_allocations,meshes[owner],names)
+                meshes[owner],rigid_render[owner]=render_rigid(render_owner,part,graph.mass_allocations,meshes[owner],names,comp.get('SteeringAppearance'))
             else:part['flexbodies'].extend([[name,bindings[owner],[]] for name in names])
         component_meshes[owner]=names
         with tempfile.TemporaryDirectory(prefix='vehicle-mesh-',dir=output.parent) as mesh_scratch:
@@ -165,8 +178,8 @@ def build(project_path,output,cgal=None,save_report=False):
                   required_controllers={row[0]:dict(region_count=len(row[1]['regions'])) for row in original_controllers if row[0]=='cadSkin'},
                   torsionbars=part.get('torsionbars',[])[1:],collision_policy=graph.collision_policy,
                   component_reports=graph.reports,connection_budget=graph.connection_budget,fixed_attachment_contract=graph.fixed_attachment_contract,rigid_refits=getattr(graph,'rigid_refits',{}),frame_locator_conditioning=getattr(graph,'frame_locator_conditioning',{}),geometry_inputs_sha256=inputs,project_fingerprint=c.fingerprint(project),
-                  mass_allocations=graph.mass_allocations,joint_refits=graph.joint_refits,shaft_chains=graph.shaft_chains,component_roles={v['Id']:v.get('MvpRole') for v in project['Components']},
-                  coilover_render=coilover_render,coilover_inputs=coilover_inputs,wheel_render=wheel_render,representation=representation_report,
+                  mass_allocations=graph.mass_allocations,joint_refits=graph.joint_refits,shaft_chains=graph.shaft_chains,driveline_physics=getattr(graph,'driveline_physics',None),component_roles={v['Id']:v.get('MvpRole') for v in project['Components']},
+                  coilover_render=coilover_render,coilover_inputs=coilover_inputs,wheel_render=wheel_render,rigid_render=rigid_render,representation=representation_report,
                   steering_contract=getattr(graph,'steering_contract',None),release_audit=getattr(graph,'release_audit',None),frame_reference=getattr(graph,'frame_reference',{}),alignment=getattr(graph,'alignment',{}),
                   vehicle_template_selection=project['MvpTemplates'],template_sha256=__import__('hashlib').sha256(template_bytes).hexdigest(),template_definition=definition,kinematics=kinematics,
                   frame_calibration=dict(qualification_status=record.get('qualification_status','diagnostic'),

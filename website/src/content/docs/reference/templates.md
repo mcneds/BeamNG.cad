@@ -5,7 +5,7 @@ sidebar:
   order: 1
 ---
 
-The source of truth for role inventory is `beamng.cad/FramePipeline/template_catalog.json`. Physical generation also validates the reviewed definition; a catalog entry alone does not mean a complete vehicle can be generated.
+The source of truth for preset role inventory is `beamng.cad/FramePipeline/template_catalog.json`. Physical generation also validates the reviewed definition; a catalog entry alone does not mean a complete vehicle can be generated.
 
 | Template | Required review |
 | --- | --- |
@@ -17,10 +17,15 @@ The source of truth for role inventory is `beamng.cad/FramePipeline/template_cat
 | MacPherson strut | Inventory schema for future work; not supported full-vehicle generation |
 | CVT rear drive | Engine/clutch/CVT, rear reduction/differential and actual ratios |
 | CVT rear drive with geared front output | Additional front output gearing, propshaft and front differential |
+| Endpoint-authored driveline graph | Explicit device ports, ratios, CAD shaft owners, joint centres/axes and support/plunge declarations; diagnostic generation with native acceptance required |
 
 ## Role ownership
 
 Each physical body belongs to one owner. Independently moving arms, racks, coilover members, carriers and wheels must not be treated as one rigid object. Repeated panels and shaft sections are allowed; unique required roles cannot be duplicated.
+
+An adopted [driveline graph](/guides/shafts/) replaces drivetrain preset role and
+count requirements with explicit device/endpoint ownership. It retains the
+existing four-wheel suspension templates and current mechanical device behaviors.
 
 Changing setup preserves saved selections and marks irrelevant tags **OUTSIDE CURRENT SETUP**. Resolve those entries, missing roles and duplicate ownership before packaging.
 

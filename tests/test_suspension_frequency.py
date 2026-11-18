@@ -10,6 +10,12 @@ spec=importlib.util.spec_from_file_location('frequency',Path(__file__).resolve()
 frequency=importlib.util.module_from_spec(spec);spec.loader.exec_module(frequency)
 
 class FrequencyTests(unittest.TestCase):
+    def test_coast_is_not_accepted_as_speed_hold(self):
+        from steady_speed_control import settings
+        data=np.zeros(1100,dtype=[('t',float),('speed',float),('broken',float)])
+        data['t']=np.arange(1,1101)*.05;data['speed']=2.2352
+        with self.assertRaisesRegex(ValueError,'Coasting'):
+            frequency.validate_speed_window({'steady_speed':settings(2.2352,30.)},{'config':{'start_s':38.,'duration_s':4.}},data)
     def test_coherence_averages_multiple_segments_for_short_capture(self):
         rng=np.random.default_rng(107);a=rng.normal(size=4000);b=rng.normal(size=4000)
         result=frequency.averaged_coherence(a,b,2000,16)

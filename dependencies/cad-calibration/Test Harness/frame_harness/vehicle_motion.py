@@ -66,10 +66,34 @@ def reference(manifest):
             actual=np.linalg.norm(np.array(manifest['nodes'][ids[1]]['position'])-manifest['nodes'][ids[0]]['position'])
             if abs(actual-length)>1e-7:raise ValueError('Shaft section rest length differs from its reference nodes')
             shafts[section['component']]=section;names.update(ids)
+    drive=manifest.get('driveline_physics') or {}
+    for section in drive.get('sections',[]):
+        ids=section['endpoints'];key='driveline_'+section['id']
+        if section.get('representation')=='ideal':
+            names.update(ids)
+            if section['half_travel_m']:
+                shafts[key]=dict(nodes=ids,length_m=section['rest_length_m'],plunge_m=section['half_travel_m'])
+            continue
+        shafts[key]=dict(nodes=ids,length_m=section['rest_length_m'],plunge_m=0.)
+        bodies[key]=section['nodes'];names.update(section['nodes'])
+    rails=drive.get('rails',[])
+    for rail in rails:names.update([rail['a'],rail['b'],rail['slider']])
     if any(name not in manifest['nodes'] for name in names):
         raise ValueError('Motion reference contains missing nodes')
-    joints = {j['id']: j['nodes'] for j in manifest.get('joints', []) if all(n in names for n in j['nodes'])}
-    return dict(version=2, chassis=chassis, corners=corners, bodies=bodies, joints=joints, shafts=shafts, steering=steering, fixed_components=fixed, nodes=sorted(names))
+    # A telescopic joint is free through its declared travel. Track its actual
+    # length at every sample and apply the same overtravel tolerance as shafts.
+    # Keep the independent spherical attachments on both parent bodies.
+    for joint in manifest.get('joints', []):
+        if joint.get('kind') != 'telescopic':continue
+        ids=joint['nodes'];half_travel=joint['travel_m']/2
+        if len(ids)!=2 or not np.isfinite(half_travel) or half_travel<=0:raise ValueError('Invalid telescopic joint '+joint['id'])
+        length=float(np.linalg.norm(np.array(manifest['nodes'][ids[0]]['position'])-manifest['nodes'][ids[1]]['position']))
+        shafts.setdefault(joint['id'],dict(nodes=ids,length_m=length,plunge_m=half_travel))
+        names.update(ids)
+    for joint in manifest.get('joints', []):
+        if joint.get('kind')=='spherical' and joint['nodes'] and joint['nodes'][-1] in names:names.update(joint['nodes'])
+    joints = {j['id']: j['nodes'] for j in manifest.get('joints', []) if j.get('kind')!='telescopic' and all(n in names for n in j['nodes'])}
+    return dict(version=2, chassis=chassis, corners=corners, bodies=bodies, joints=joints, shafts=shafts, driveline_rails=rails,steering=steering, fixed_components=fixed, nodes=sorted(names))
 
 
 def rigid_fit(original, current, weights=None):
@@ -197,7 +221,12 @@ def compare(manifest, motion, scenario):
                    steering_applied=sample.get('steering_applied'),
                    lateral_m=float(delta[0]), forward_m=float(-delta[1]), yaw_deg=float(heading),
                    chassis_shape_error_m=chassis_errors[worst_chassis], worst_chassis_node=worst_chassis,
-                   bodies={}, corners={}, joints={}, shafts={}, fixed_components={})
+                   bodies={}, corners={}, joints={}, shafts={}, driveline_rails={},fixed_components={})
+        for rail in ref.get('driveline_rails',[]):
+            a,b,p=(local[rail[key]] for key in ('a','b','slider'));axis=b-a;length=float(np.linalg.norm(axis))
+            if length<1e-8:raise ValueError('Collapsed driveline plunge rail')
+            u=axis/length;along=float((p-a)@u)
+            row['driveline_rails'][rail['id']]=dict(transverse_error_m=float(np.linalg.norm((p-a)-along*u)),beyond_travel_m=max(0.,-along,along-length))
         for owner, attachment in ref['fixed_components'].items():
             row['fixed_components'][owner]=float(max(np.linalg.norm(local[n]-original[n]) for n in attachment['nodes']))
         for owner, section in ref['shafts'].items():
@@ -282,6 +311,10 @@ def compare(manifest, motion, scenario):
     for owner in ref['shafts']:
         peak=max(s['shafts'][owner]['beyond_plunge_m'] for s in active)
         metrics[owner+'_peak_beyond_plunge_m']=peak;checks[owner+'_shaft_length_holds']=peak<=.003
+    for rail in ref.get('driveline_rails',[]):
+        for key in ('transverse_error_m','beyond_travel_m'):
+            peak=max(s['driveline_rails'][rail['id']][key] for s in active)
+            metrics[rail['id']+'_peak_'+key]=peak;checks[rail['id']+'_'+key]=peak<=.003
     metrics['peak_chassis_shape_error_m'] = max(s['chassis_shape_error_m'] for s in active)
     checks['chassis_holds_reference'] = metrics['peak_chassis_shape_error_m'] <= .005
     if scenario in ('acceleration', 'braking', 'reverse'):

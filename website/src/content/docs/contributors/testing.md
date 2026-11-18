@@ -29,6 +29,46 @@ Focused tests cover geometry selection, component mass, coilover assignments, jo
 
 ## Native CAD tests
 
+### Driveline graphs
+
+Run `python -m unittest discover -s tests -p test_driveline.py` for graph topology,
+private-reference resolution, rigid section ownership, floating centres, axial
+rails and numerical coupling budgets. The fake CAD fixture is analytic test data.
+`tools/Test-Driveline.ps1` takes `-OutputDirectory` and a fresh `-Destination`;
+run it with Windows PowerShell `-STA` against an isolated add-in build. It checks
+project migration, dictionary persistence, draft isolation and native lists.
+
+`python tools/probe-driveline.py --output NEW_DIRECTORY` creates an explicitly
+synthetic floating-shaft vehicle. Add `--native --profile OWNED_PROFILE` for
+isolated settle, supported-drive and articulation pilots. The null renderer omits
+visual capture; missing rendered evidence does not become a qualification pass.
+This mechanical fixture omits optional panels/accessories, declares its synthetic
+chassis mass/stiffness and reference axes, and uses production support-mass
+conditioning. Full-vehicle attachment acceptance is a separate test.
+Its bent floating shaft starts at the gravity minimum; ideal spherical joints
+have no rotational damping, so a sideways release is an undamped-pendulum test
+and is not expected to establish settling. Preserve earlier recordings when
+changing the fixture's initial pose and keep the acceptance limits unchanged.
+For a matched halfshaft comparison, generate a mechanical baseline and pass
+its manifest to each run with `--match-suspension BASELINE/manifest.json`.
+Use `--shaft-model legacy`, `ideal`, and `slider` in fresh output directories
+and dedicated profiles. These variants use straight propshafts, the same
+halfshaft mass inputs, and the same four sets of spring, damping and preload
+values. Compare the explicit node and rail counts, numerical mass, wheel
+travel and tail relative node speed. Telescopic links are checked against their
+declared travel, and their spherical attachments are checked independently.
+
+The probe preserves raw scenario results separately from diagnostic interpretation
+and never creates a build qualification receipt. It does not test a real CAD
+assembly, physical shaft rupture or rendered spin.
+
+### Frame preview checks
+
+See [Test the frame preview](/contributors/frame-preview/) for separate GPU
+compute and forced-software checks, saved-mesh timing and coverage limits.
+
+### CAD fixtures
+
 ```powershell
 powershell -NoProfile -STA -ExecutionPolicy Bypass -File tools/Test-Cad.ps1
 ```

@@ -13,7 +13,7 @@ The front view therefore shows vehicle left on the screen's right. Choose
 view. The front three-quarter view looks down from above; changing view never
 swaps role names or assignments.
 
-Open **Components / mounts → Joints & mounts → Connection guide**, or use
+Open **Joints → Connection guide**, or use
 **Locate on reference skeleton** beside the CAD assignment's role picker. The
 searchable request list includes the applied configuration's hardpoints and
 their assignment/review status. Selecting a request shows its labelled example
@@ -42,6 +42,4 @@ generated simulation node. It loads local illustration assets without launching
 BeamNG, Python or another SolidWorks document.
 
 The component window separates **CAD assignment**, **Appearance**, **Physical
-properties**, and **Hull preview** under Components. **Build / test** groups the
-export, generation and verification steps; **Log** has its own page. Task progress
-and **Stop task** appear only while an operation is running.
+properties**, and **Hull preview** under Components. **Build** groups export and generation; **Verify** contains package checks. The docked task area retains the latest result and provides **Stop** while working. Expand **Details** for logs.

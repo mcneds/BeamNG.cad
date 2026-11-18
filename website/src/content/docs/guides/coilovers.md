@@ -11,7 +11,7 @@ and seat), and coil spring into the three slots. Each slot accepts multiple
 bodies, shows its saved body count, and can highlight its selection in SolidWorks.
 Choose whether the housing attaches to the chassis/top mount or suspension/bottom
 mount. Complete all slots, then use **Package saved appearances** on Appearance
-or Build / test. The split also applies when regenerating full-vehicle physics.
+or Build. The split also applies when regenerating full-vehicle physics.
 Selections survive restarts; partial or overlapping assignments block packaging
 without discarding saved work. Existing combined assignments stay usable until
 you opt into split visuals. Clear every slot to return to a combined mesh.
@@ -42,7 +42,7 @@ physical snapshot. These checks cover motion and rendering, not real shock ratin
 In the same **Coilover** tab, choose **Two-stage springs with crossover** for each
 corner that needs it. Enter the main and tender spring rates in N/mm and the shock
 compression, in mm from the CAD ride position, where the crossover engages. Click
-**Save spring settings**, then **Regenerate physics / package**. Appearance-only
+**Apply component changes**, then **Regenerate physics / package**. Appearance-only
 packaging keeps the previous physics. The default remains the automatic single-rate
 spring; example values in the fields are not measured hardware specifications.
 

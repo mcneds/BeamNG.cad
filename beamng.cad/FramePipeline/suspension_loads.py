@@ -132,6 +132,13 @@ def configure(graph,corners,roles,model,definition,shock_options):
             if shaft['corner']!=corner:continue
             name=owner+'_outer'
             points[owner]={owner+'_inner':0.,name:float((derivative['upright']@np.r_[positions[name],1.])[2])}
+        for section in getattr(graph,'driveline_physics',{}).get('sections',[]):
+            if section.get('representation') != 'ideal':
+                continue
+            moving = {node: float((bodies[parent] @ np.r_[positions[node],1.])[2])
+                      for node,parent in zip(section['endpoints'],section['parents']) if parent in bodies}
+            if moving:
+                points[section['component']] = moving
         ring_center=(positions[corners[corner]['nodes']['axis_in']]+positions[corners[corner]['nodes']['axis_out']])/2
         ring_dz=float((derivative['wheel']@np.r_[ring_center,1.])[2])
         unsprung=corners[corner]['wheel_mass_kg']*ring_dz+effective_moving_mass(graph.mass_allocations,positions,bodies,points)

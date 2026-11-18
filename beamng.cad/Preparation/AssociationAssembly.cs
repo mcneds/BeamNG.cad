@@ -27,6 +27,7 @@ namespace BeamNG.Cad.Preparation
             [DataMember] public List<string> Notes=new List<string>();
             [DataMember] public List<ComponentDefinition> SourceComponents;
             [DataMember] public List<MvpTemplateChoice> SourceTemplates;
+            [DataMember(EmitDefaultValue=false)] public Driveline SourceDriveline;
             [DataMember] public string PreviousAssembly;
         }
         [DataContract] internal sealed class Group
@@ -197,7 +198,7 @@ namespace BeamNG.Cad.Preparation
             if(path.Length>220)throw new IOException("Choose a shorter working folder path for native CAD files.");
             Directory.CreateDirectory(folder);
             var baseline=VehicleProject.Load(project.FilePath);
-            var receipt=new Receipt {SourceProject=project.FilePath,SourceDocument=selection.Document,Configuration=selection.Configuration,Assembly=path,Project=VehicleProject.PathFor(path),SourceComponents=baseline.Components,SourceTemplates=baseline.MvpTemplates};
+            var receipt=new Receipt {SourceProject=project.FilePath,SourceDocument=selection.Document,Configuration=selection.Configuration,Assembly=path,Project=VehicleProject.PathFor(path),SourceComponents=baseline.Components,SourceTemplates=baseline.MvpTemplates,SourceDriveline=baseline.Driveline?.Copy()};
             receipt.Notes.Add("Independent geometry snapshot. Native face appearances, exposed finish/mapping properties and available texture assets are copied; decals are not transferred. Native physical material assignments are copied separately.");
             var receiptPath=Path.Combine(folder,"working-assembly.json");JsonFile.Write(receiptPath,receipt);
             var owned=new List<ModelDoc2>();ModelDoc2 assembly=null;
@@ -357,6 +358,7 @@ namespace BeamNG.Cad.Preparation
                     var copyProject=VehicleProject.Open(path);
                     copyProject.Components=snapshot.Components;copyProject.Anchors=snapshot.Anchors;copyProject.Connections=snapshot.Connections;copyProject.MvpTemplates=snapshot.MvpTemplates;
                     copyProject.JointWorkspace=snapshot.JointWorkspace;
+                    copyProject.Driveline=snapshot.Driveline?.Copy();
                     copyProject.JointWorkspace.Invalidate(snapshot.Components.Select(c=>c.Id),"Copied CAD needs new native joint references");
                     // A reviewed definition is editable input, but its old source identities are not acceptance evidence.
                     if(File.Exists(snapshot.TemplateDefinitionPath))

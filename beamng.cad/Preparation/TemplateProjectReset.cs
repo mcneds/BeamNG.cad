@@ -22,9 +22,10 @@ namespace BeamNG.Cad.Preparation
             if(string.IsNullOrWhiteSpace(receipt))throw new InvalidOperationException("This project has no imported physics template to reset to.");
             ModPackage.ArchivePath(receipt);
             var baseline=JsonFile.Read<VehicleProject>(Path.Combine(Path.GetDirectoryName(receipt),"project.snapshot.json"));
-            if(baseline.Version!=2||baseline.Components==null||baseline.Components.Count==0)
+            if((baseline.Version!=2&&baseline.Version!=3&&baseline.Version!=4)||baseline.Components==null||baseline.Components.Count==0)
                 throw new InvalidDataException("The template has no supported component snapshot.");
             Candidate.Components=baseline.Components;
+            Candidate.Driveline=baseline.Driveline?.Copy();
             Candidate.MvpTemplates=baseline.MvpTemplates??new List<MvpTemplateChoice>();
             Candidate.TemplateDefinitionPath=baseline.TemplateDefinitionPath;
             Candidate.FrameBuildReceipt=baseline.FrameBuildReceipt;

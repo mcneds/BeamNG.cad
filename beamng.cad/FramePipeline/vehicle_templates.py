@@ -53,13 +53,60 @@ def frame_mounts(definition):
     return mounts
 
 
+def resolved_wheel_datums(definition):
+    """Unbound v2 wheel ports use the suspension's declared hub and positive axis."""
+    spec = definition['driveline']
+    if spec.get('version') != 2:
+        return spec
+    spec = copy.deepcopy(spec)
+    endpoints = {e['id']: e for e in spec['endpoints']}
+    for device in spec['devices']:
+        if device['type'] != 'wheel':
+            continue
+        for port in device['ports']:
+            endpoint = endpoints.get(port['endpoint'])
+            if endpoint is not None and endpoint.get('axis') is None:
+                points = definition['hardpoints'][device['wheel']]
+                axis = np.asarray(points['hub_axis']) - points['hub']
+                if np.linalg.norm(axis) < 1e-8:
+                    raise ValueError(device['id'] + ': suspension hub axis is undefined')
+                if endpoint.get('position') is None:endpoint['position']=list(points['hub'])
+                endpoint['axis']=(axis / np.linalg.norm(axis)).tolist()
+    return spec
+
+
 def frame_mount_plan(definition,components):
     """Only release mounts need a short, separate parent-node patch.
 
     Structural point constraints already connect to the frame's existing nodes;
     unused locator cages must not consume CAD mass or the calibration budget.
     """
-    shaft_chains.validate(definition,components)
+    if definition.get('driveline'):
+        if any(definition.get(key) for key in ('shafts','halfshafts','shaft_chains','fixed_shafts')):raise ValueError('A driveline graph cannot also declare earlier shaft representations; migrate their ownership explicitly')
+        from driveline import validate
+        resolved=resolved_wheel_datums(definition)
+        validate(resolved,dict(Components=components))
+        shaft_owners={s['component'] for s in definition['driveline']['shafts']}
+        housing_owners={d['component'] for d in definition['driveline']['devices'] if d['type']!='wheel'}
+        endpoints={e['id']:e for e in resolved['endpoints']}
+        for device in definition['driveline']['devices']:
+            if device['type']!='wheel':continue
+            endpoint=endpoints[device['ports'][0]['endpoint']];points=definition['hardpoints'][device['wheel']]
+            hub=np.asarray(points['hub'],float);axis=np.asarray(points['hub_axis'],float)-hub
+            if np.linalg.norm(axis)<1e-8:raise ValueError(device['id']+': suspension hub axis is undefined')
+            axis/=np.linalg.norm(axis);declared=np.asarray(endpoint['axis'],float);declared/=np.linalg.norm(declared)
+            if np.linalg.norm(np.cross(np.asarray(endpoint['position'])-hub,axis))>1e-4 or abs(axis@declared)<.999:
+                raise ValueError(device['id']+': wheel port centre and axis must lie on its declared suspension hub axis')
+        shaft_ends={e for s in definition['driveline']['shafts'] for e in (s['a'],s['b'])}
+        housing_owners.update(endpoints[l['b'] if l['a'] in shaft_ends else l['a']]['component'] for l in definition['driveline']['connections'] if l['kind']=='bearing')
+        fixed=set(definition.get('fixed_mounts',{}))
+        if shaft_owners&fixed:raise ValueError('Shaft bodies cannot also be rigidly mounted to the chassis')
+        if not housing_owners<=fixed:raise ValueError('Every driveline housing needs explicit reviewed mounts before calibration')
+        for owner in housing_owners:
+            points=np.asarray(definition['fixed_mounts'][owner],float)
+            if points.ndim!=2 or points.shape[1]!=3 or len(points)<3 or not np.isfinite(points).all() or np.linalg.matrix_rank(points-points[0],tol=1e-8)<2:
+                raise ValueError(owner+': driveline housing/carrier needs three finite, separated, non-collinear mounting sites')
+    else:shaft_chains.validate(definition,components)
     fixed=definition.get('fixed_mounts',{})
     panel_owners={v['Id'] for v in components if v.get('Template')=='panel'}
     rigid_panels=set(definition.get('fixed_panel_components',[]))
@@ -109,6 +156,8 @@ def rigid_mass_points(moments,hardpoints):
     covariance=(np.trace(inertia)/2*np.eye(3)-inertia)/mass
     eigen,axes=np.linalg.eigh(covariance)
     if mass<=0 or min(eigen)<=0:raise ValueError('Rigid CAD mass distribution must have positive volume')
+    if not len(points):
+        return np.asarray(center)+np.vstack((np.eye(3),-np.eye(3)))*np.sqrt(3*eigen)@axes.T,np.full(6,mass/6)
     inverse=(axes/np.sqrt(eigen))@axes.T
     share=.6
     for _ in range(80):
@@ -333,6 +382,13 @@ class Structure:
             report['representation']='Required hardpoints and six symmetric residual-moment quadrature nodes'
             report['allocation_method']='Log-det constrained positive hardpoint mass fit; three opposite residual point pairs preserve mass, COM and inertia'
             if not report['accepted']:raise ValueError(owner+': fixed representation cannot fit CAD mass/COM/inertia')
+        spec=getattr(self,'reaction_graph',None)
+        if spec is not None and owner in self.reaction_owners:
+            from driveline_physics import housing_points
+            extra=housing_points(spec,owner,xyz)
+            if extra:
+                if set(extra)&set(required):raise ValueError(owner+': cannot form reaction triangle on declared axis')
+                return self.rigid_component(component,required|extra,shared)
         edges=list(itertools.combinations(range(len(xyz)),2))
         columns,_,_=axial_columns(xyz,edges)
         if not minimal and np.linalg.matrix_rank(columns,tol=1e-8)!=3*len(xyz)-6:raise ValueError(owner+': rigid representation has an internal mechanism')
@@ -407,9 +463,21 @@ class Structure:
             assembled_node_masses_kg=dict(zip(names,map(float,masses))),
             scope='Numerical rigid-carrier fit uses assembled pivot/axle masses; full coupled tangent audited; CAD ownership unchanged')
     def geometry_component(self,component,points,scratch,cgal):
+        if component.get('Method')=='rigid':
+            result=self.rigid_component(component,{component['Id']+'_mount_'+str(i):p for i,p in enumerate(points)})
+            self.reports[component['Id']]['render_as_rigid_prop']=True
+            return result
         anchors=[dict(Id=str(i),Name=component['Name']+' mount '+str(i),Status='resolved',Position=p) for i,p in enumerate(points)]
         part,report=c.generate_component(component,anchors,Path(scratch)/component['Id'],cgal)
-        rigid_housing=component.get('MvpRole') in ('engine','cvt','front_diff','rear_diff','rear_final_drive','shaft_carrier')
+        if component.get('_DrivelineHousing') and getattr(self,'reaction_graph',None):
+            from driveline_physics import housing_points
+            existing=[node['position'] for node in node_table(part).values()]
+            extra=housing_points(self.reaction_graph,component['Id'],existing)
+            if extra:
+                points=list(points)+list(extra.values())
+                anchors=[dict(Id=str(i),Name=component['Name']+' mount '+str(i),Status='resolved',Position=p) for i,p in enumerate(points)]
+                part,report=c.generate_component(component,anchors,Path(scratch)/component['Id']/'reaction-sites',cgal)
+        rigid_housing=component.get('_DrivelineHousing',False) or component.get('MvpRole') in ('engine','cvt','front_diff','rear_diff','rear_final_drive','shaft_carrier')
         compact_solid=(component.get('Template')=='bulk' and
                        report.get('settings',{}).get('wrap',{}).get('selected_method')=='exact_convex_solid' and
                        len(node_table(part))<=32)
@@ -737,12 +805,20 @@ def wheel_axis_points(points,center=None,half_span=.075):
 
 def generate(project,frame,definition,*,scratch=None,cgal=None):
     from frame_harness.progress import emit
-    chains=shaft_chains.validate(definition,project['Components'])
+    drive_graph=definition.get('driveline')
+    if drive_graph:
+        drive_graph=resolved_wheel_datums(definition)
+        from driveline import validate as validate_drive
+        from driveline_physics import owners as drive_owners
+        validate_drive(drive_graph,project)
+        chains={};drive_components=drive_owners(drive_graph)
+    else:
+        chains=shaft_chains.validate(definition,project['Components']);drive_components=set()
     for name,position in frame_mounts(definition).items():
         patch=frame.get('cadMountPatches',{}).get(name)
         if patch is None or not np.allclose(patch['position'],position,atol=1e-7,rtol=0):raise ValueError('Mount moved or missing after frame calibration: '+name)
     model=TemplateModel(definition);checks={corner:Mechanism(model,corner).inspect() for corner in model.data['corners']}
-    single=[v for v in project['Components'] if not v['MvpRole'].startswith('panel') and v['MvpRole'] not in shaft_chains.REPEATABLE_ROLES|{'accessory'}]
+    single=[v for v in project['Components'] if not v['MvpRole'].startswith('panel') and v['MvpRole'] not in shaft_chains.REPEATABLE_ROLES|{'accessory'} and (v['Id'] not in drive_components or v['MvpRole'].endswith('_wheel'))]
     roles={v['MvpRole']:v for v in single}
     if len(roles)!=len(single):raise ValueError('Duplicate single-owner role')
     graph=Structure(frame,roles['frame']['Id']);meshes={};bindings={};corners={};wheel_rows=[];hydros=[]
@@ -927,7 +1003,12 @@ def generate(project,frame,definition,*,scratch=None,cgal=None):
         shock_options[corner]=dict(spring=spring_options,damper=graph.new_beams[-1][2])
         mass=c.read_geometry(roles[prefix+'_wheel'])[1][0]
         meshes[roles[prefix+'_wheel']['Id']]=c.read_geometry(roles[prefix+'_wheel'])[0];bindings[roles[prefix+'_wheel']['Id']]=['tire_'+corner]
-        options=wheel_options(mass,front,parameters,total)
+        # Allocate CAD moments and budget the reference carcass before changing
+        # contact resolution. Otherwise refinement silently softens its recipe
+        # a second time through the per-node low-mass budget.
+        from tire_resolution import REFERENCE_RAYS,DEFAULT_RAYS,refine,validate_rays
+        requested_rays=validate_rays(parameters.get('tire_rays',DEFAULT_RAYS))
+        options=wheel_options(mass,front,dict(parameters,tire_rays=REFERENCE_RAYS),total)
         axes=[ids['axis_in'],ids['axis_out']]
         allocation=cad_wheel_support_mass if cad_wheel else wheel_support_mass
         extra=dict(moments=wheel_moments,axis=p['hub_axis']-p['hub']) if cad_wheel else {}
@@ -946,6 +1027,7 @@ def generate(project,frame,definition,*,scratch=None,cgal=None):
             wheel_allocation['center_error_m']=float(np.linalg.norm((graph.point(axes[0])+graph.point(axes[1]))/2-wheel_moments[1]))
         if parameters.get('cad_tire_budget',False):
             options,wheel_allocation['experimental_tire_budget']=cad_tire_budget(options)
+        options,wheel_allocation['contact_resolution']=refine(options,requested_rays)
         for name in axes:graph.nodes[name]['options']['nodeWeight']+=axle_mass
         graph.mass_allocations[roles[prefix+'_wheel']['Id']]={name:axle_mass for name in axes} if axle_mass else {}
         carrier=roles[prefix+('_upright' if wishbone or radius_toe else '_trailing_arm')]['Id']
@@ -974,15 +1056,38 @@ def generate(project,frame,definition,*,scratch=None,cgal=None):
     from attachment_contract import prepare_points,connect as connect_fasteners
     authored_mounts=definition.get('attachment_contract')
     parent_locators=prepare_points(fixed,authored_mounts,graph.frame_owner) if authored_mounts is not None else {}
-    from drive_axes import resolve as resolve_drive_axis
-    crank_axis,crank_report=resolve_drive_axis(roles['engine'],roles['cvt'],parameters)
-    graph.drive_axes={roles['engine']['Id']:crank_axis}
+    if drive_graph:
+        from driveline_physics import housing_points
+        endpoints={e['id']:e for e in drive_graph['endpoints']}
+        engine_device=next(d for d in drive_graph['devices'] if d['type']=='engine')
+        cvt_device=next(d for d in drive_graph['devices'] if d['type']=='cvt')
+        engine_owner=engine_device['component'];cvt_owner=cvt_device['component']
+        crank_axis=np.array(endpoints[engine_device['ports'][0]['endpoint']]['axis'])
+        crank_report=dict(method='cad_endpoint',axis=crank_axis.tolist(),scope='Explicit driveline engine output axis')
+        shaft_owners={s['component'] for s in drive_graph['shafts']}
+        if shaft_owners&set(fixed):raise ValueError('Shaft bodies cannot also be rigidly mounted to the chassis')
+        housing_owners={d['component'] for d in drive_graph['devices'] if d['type']!='wheel'}
+        if drive_graph['version']==2:
+            graph.reaction_graph=drive_graph;graph.reaction_owners=housing_owners
+        if not housing_owners<=set(fixed):raise ValueError('Every device housing needs explicit reviewed frame mounts')
+    else:
+        from drive_axes import resolve as resolve_drive_axis
+        crank_axis,crank_report=resolve_drive_axis(roles['engine'],roles['cvt'],parameters)
+        engine_owner=roles['engine']['Id'];cvt_owner=roles['cvt']['Id']
+    graph.drive_axes={engine_owner:crank_axis}
     for component_index,(owner,points) in enumerate(fixed.items()):
         emit('Build fixed components',completed=component_index,total=len(fixed),detail=owner)
         comp=next(v for v in project['Components'] if v['Id']==owner)
         if definition.get('steering',{}).get('component')==owner:
             from translating_rack import generate as generate_rack
             names,mesh=generate_rack(graph,project,definition,points,hydros)
+        elif drive_graph and owner in housing_owners:
+            required={owner+'_mount_'+str(i):p for i,p in enumerate(points)}
+            if drive_graph['version']==1:required.update(housing_points(drive_graph,owner,points))
+            if scratch is None:names,mesh=graph.rigid_component(comp,required)
+            else:
+                extra=[p for key,p in required.items() if key.startswith('driveline_axis_') and not any(np.linalg.norm(np.asarray(p)-q)<1e-7 for q in points)]
+                names,mesh=graph.geometry_component(comp|dict(_DrivelineHousing=True),list(points)+extra,scratch,cgal)
         elif scratch is not None:
             if parameters.get('engine_reaction_support',False) and comp.get('MvpRole')=='engine':
                 comp=comp|dict(_ExperimentalReactionSupport=True,_ReactionAxis=crank_axis.tolist(),
@@ -1010,22 +1115,35 @@ def generate(project,frame,definition,*,scratch=None,cgal=None):
                 owner=roles[role]['Id']
                 for direction in (-1,1):preferred.update(wheel_reaction_nodes(graph,owner,direction).values())
         graph.preferred_joint_supports={owner:set(names)&preferred for owner,names in graph.groups.items()}
-    shafts=definition.get('halfshafts',{})|definition.get('shafts',{})
+    shafts={} if drive_graph else definition.get('halfshafts',{})|definition.get('shafts',{})
+    ideal_sections=[]
+    if drive_graph:
+        from driveline_physics import ideal_declarations
+        hub_owners={corner:roles[corner.lower()+('_upright' if model.data['corners'][corner]['template'] in ('double_wishbone','trailing_radius_toe','trailing_ball_radius_toe') else '_trailing_arm')]['Id'] for corner in corners}
+        shafts=ideal_declarations(drive_graph,hub_owners)
     for shaft_index,(owner,declaration) in enumerate(shafts.items()):
         emit('Connect shafts',completed=shaft_index,total=len(shafts),detail=owner)
         comp=next(v for v in project['Components'] if v['Id']==owner)
         if owner in meshes:raise ValueError('A halfshaft cannot also have fixed chassis mounts: '+owner)
-        if 'corner' in declaration:
+        ideal='ideal_id' in declaration
+        if ideal:
+            housing,suspension=declaration['parents']
+        elif 'corner' in declaration:
             corner=declaration['corner'];prefix=corner.lower()
             housing=roles['front_diff' if corner[0]=='F' else ('rear_final_drive' if 'rear_final_drive' in roles else 'rear_diff')]['Id']
             suspension=roles[prefix+('_upright' if model.data['corners'][corner]['template'] in ('double_wishbone','trailing_radius_toe','trailing_ball_radius_toe') else '_trailing_arm')]['Id']
         else:
             housing=roles[declaration['inner_role']]['Id'];suspension=roles[declaration['outer_role']]['Id']
         mesh,moments,_=c.read_geometry(comp);shaft_nodes=[];parents=[]
+        if moments[0]<=0:raise ValueError(owner+': shaft needs positive CAD mass')
         for end,parent in [('inner',housing),('outer',suspension)]:
-            n=owner+'_'+end;p=np.array(declaration[end],float);shaft_nodes.append(n)
+            n=owner+'_'+end;p=np.array(declaration[end],float)
+            if ideal:
+                n=next((site for site in graph.groups[parent] if np.linalg.norm(graph.point(site)-p)<1e-7),n)
+            shaft_nodes.append(n)
             if n in graph.nodes:
-                if (not share_outer or owner not in definition.get('halfshafts',{}) or end!='outer'
+                if ideal and (n not in graph.groups[parent] or np.linalg.norm(graph.point(n)-p)>1e-7):raise ValueError(owner+': shaft endpoint node identity conflicts with another owner')
+                if not ideal and (not share_outer or owner not in definition.get('halfshafts',{}) or end!='outer'
                     or n not in graph.mass_allocations[parent] or not np.allclose(graph.point(n),p,atol=1e-9,rtol=0)):
                     raise ValueError('Invalid shared shaft endpoint: '+n)
                 graph.nodes[n]['options']['nodeWeight']+=moments[0]/2
@@ -1038,23 +1156,42 @@ def generate(project,frame,definition,*,scratch=None,cgal=None):
             graph.part['nodes'].append([n,*p.tolist(),options]);support=joint_supports(graph,parent,p);parents.extend(support)
             graph.spherical(owner+'_'+end,support,n,parent_owner=parent)
         plunge=float(declaration.get('plunge_m',.06))
-        if not 0<plunge<np.linalg.norm(graph.point(shaft_nodes[1])-graph.point(shaft_nodes[0]))*.5:raise ValueError('Invalid halfshaft plunge range')
-        graph.beam(*shaft_nodes,beamType='|BOUNDED',beamSpring=0,beamDamp=0,shortBoundRange=plunge,longBoundRange=plunge,
-                   boundZone=.01,beamLimitSpring=20000,beamLimitDamp=50,dampCutoffHz=100)
+        length=float(np.linalg.norm(graph.point(shaft_nodes[1])-graph.point(shaft_nodes[0])))
+        if length<.001 or not (0<=plunge<length*.5 if ideal else 0<plunge<length*.5):
+            raise ValueError(owner+': invalid shaft length or half travel')
+        if plunge:
+            graph.beam(*shaft_nodes,beamType='|BOUNDED',beamSpring=0,beamDamp=0,shortBoundRange=plunge,longBoundRange=plunge,
+                       boundZone=.01,beamLimitSpring=20000,beamLimitDamp=50,dampCutoffHz=100)
+        if ideal:
+            ideal_sections.append(dict(id=declaration['ideal_id'],component=owner,representation='ideal',
+                endpoints=shaft_nodes,nodes=shaft_nodes,parents=declaration['parents'],rest_length_m=length,half_travel_m=plunge))
         graph.groups[owner]=shaft_nodes;graph.mass_allocations[owner]={n:moments[0]/2 for n in shaft_nodes}
         for n in parents:graph.nodes[n]['options']['group'].append(owner+'_structure')
         graph.reports[owner]=dict(target_mass_kg=moments[0],actual_mass_kg=moments[0],allocation_method='endpoint_lumped',
             center_error_m=float(np.linalg.norm((graph.point(shaft_nodes[0])+graph.point(shaft_nodes[1]))/2-moments[1])),
             limitations=['Endpoint mass approximation; shaft bending/rotational inertia and physical spline strength are not calibrated.'])
-        graph.joints.append(dict(id=owner+'_plunge',kind='telescopic',nodes=shaft_nodes,travel_m=plunge*2))
+        if plunge:graph.joints.append(dict(id=owner+'_plunge',kind='telescopic',nodes=shaft_nodes,travel_m=plunge*2))
         meshes[owner]=mesh;bindings[owner]=[owner+'_structure']
     graph.shaft_chains=shaft_chains.generate(graph,chains,project['Components'],meshes,bindings,joint_supports)
+    if drive_graph:
+        from driveline_physics import generate as generate_drive
+        graph.driveline_hub_owners={corner:roles[corner.lower()+('_upright' if model.data['corners'][corner]['template'] in ('double_wishbone','trailing_radius_toe','trailing_ball_radius_toe') else '_trailing_arm')]['Id'] for corner in corners}
+        generate_drive(drive_graph,graph,project,meshes,bindings,joint_supports)['sections'].extend(ideal_sections)
     graph.part['hydros']=[['id1:','id2:']]+hydros
     graph.part['pressureWheels']=[['name','hubGroup','group','node1:','node2:','nodeS','nodeArm:','wheelDir']]+wheel_rows
     from suspension_loads import configure as configure_suspension
     from vehicle_drivetrain import generate as drivetrain
-    engine=roles['engine']['Id'];cvt=roles['cvt']['Id']
-    drive,contract=drivetrain(definition['templates']['drivetrain'],parameters,reaction_nodes(graph,engine,cvt),graph.groups[cvt][0]);graph.part.update(drive)
+    engine=engine_owner;cvt=cvt_owner
+    if drive_graph:
+        from driveline import compile as compile_drive,wheel_reactions
+        from driveline_physics import reaction as reaction_basis
+        basis=reaction_basis(graph,engine,crank_axis)
+        engine_reactions=[basis['torqueCoupling'],basis['torqueArm2'],basis['torqueArm']]
+        drive,contract=compile_drive(drive_graph,engine_reactions,graph.groups[cvt][0],parameters)
+        wheel_reaction=wheel_reactions(drive_graph)
+        wheel_housing={corner:value['component'] for corner,value in wheel_reaction.items()}
+    else:drive,contract=drivetrain(definition['templates']['drivetrain'],parameters,reaction_nodes(graph,engine,cvt),graph.groups[cvt][0])
+    graph.part.update(drive)
     if graph.shaft_chains:
         contract['shaft_chains']={key:dict(device=value['powertrain_device'],components=[s['component'] for s in value['segments']]) for key,value in graph.shaft_chains.items()}
         contract['assumptions'].append('Articulated shaft sections share the existing ideal powertrain connection; no additional gear reduction or Cardan angular-speed correction is inferred.')
@@ -1065,8 +1202,10 @@ def generate(project,frame,definition,*,scratch=None,cgal=None):
     for row in wheel_rows:
         corner=row[0];reaction=dict(nodeArm=corners[corner]['brake_reaction_node'])
         if corner in contract['driven_wheels']:
-            housing=roles['front_diff' if corner[0]=='F' else ('rear_final_drive' if 'rear_final_drive' in roles else 'rear_diff')]['Id']
-            torque=wheel_reaction_nodes(graph,housing,row[7])
+            housing=wheel_housing[corner] if drive_graph else roles['front_diff' if corner[0]=='F' else ('rear_final_drive' if 'rear_final_drive' in roles else 'rear_diff')]['Id']
+            if drive_graph:
+                torque=reaction_basis(graph,housing,wheel_reaction[corner]['axis'])
+            else:torque=wheel_reaction_nodes(graph,housing,row[7])
             axle='front' if corner[0]=='F' else 'rear'
             options=row[-1];rays=options['numRays']*2
             # Native pressure-wheel wheel.nodes is the rotating hub ring.
@@ -1094,9 +1233,13 @@ def generate(project,frame,definition,*,scratch=None,cgal=None):
     for corner,wheel in corners.items():
         if corner not in contract['driven_wheels']:continue
         axle='front' if corner[0]=='F' else 'rear'
-        housing_inertias[axle]=min(housing_inertias.get(axle,float('inf')),reaction_inertia(graph,wheel['reaction_nodes']))
+        key=corner if drive_graph else axle
+        housing_inertias[key]=min(housing_inertias.get(key,float('inf')),reaction_inertia(graph,wheel['reaction_nodes']))
     from vehicle_drivetrain import configure_carrier
-    configure_carrier(graph.part,contract,housing_inertias,wheel_inertias,parameters)
+    if drive_graph:
+        from driveline_physics import configure
+        configure(graph.part,contract,wheel_inertias,housing_inertias,parameters)
+    else:configure_carrier(graph.part,contract,housing_inertias,wheel_inertias,parameters)
     part=graph.finish()
     if authored_mounts is not None:
         from attachment_contract import audit_release

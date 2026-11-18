@@ -28,13 +28,17 @@ definitions['frame-calibration'].sources.push('website/src/data/frame-tuning.jso
 definitions['mate-compilation'].sources.push('website/src/data/mate-compilation.json', 'tools/generate-docs-evidence.py', 'website/src/components/explainers/MateExplorer.astro');
 definitions['vehicle-generation'].sources.push('website/src/lib/explainers.ts', 'website/src/components/explainers/SpringExplorer.astro');
 definitions.verification.sources.push('website/src/data', 'website/src/components/explainers/EvidenceChart.astro');
+definitions.verification.sources.push('tools/probe-drive-execution.py', 'tools/steady_speed_control.py', 'tools/analyze-low-speed.py', 'tools/analyze-suspension-frequency.py');
+definitions.verification.sources.push('tools/probe-driveline.py', 'tests/test_driveline.py');
 for(const group of ['frame-generation','frame-calibration','mate-compilation'])definitions[group].sources.push('website/src/components/explainers/explorers.css');
 definitions.website.sources.push('website/scripts/doc-evidence.mjs','website/scripts/remark-doc-evidence.mjs','website/scripts/check-links.mjs','website/src/components/ReviewedPageTitle.astro');
 definitions.website.sources.push('website/src/components/ReviewedMarkdownContent.astro');
+definitions.application.sources.push('beamng.cad/FramePipeline/preview_search_worker.py');
+definitions.application.sources.push('beamng.cad/FramePipeline/driveline.py', 'beamng.cad/FramePipeline/driveline_physics.py', 'beamng.cad/FramePipeline/driveline_presets.py');
 function filesAt(path){
   if(!existsSync(path))throw new Error('Missing documentation source '+relative(root,path));
   try { return readdirSync(path,{withFileTypes:true}).filter(e=>!['__pycache__','bin','obj'].includes(e.name)).flatMap(e=>filesAt(resolve(path,e.name))); }
-  catch(e){if(e.code!=='ENOTDIR')throw e;return !path.endsWith('doc-evidence.json')&&/\.(py|cs|json|mjs|lua|ts|astro|svg)$/.test(path)?[path]:[];}
+  catch(e){if(e.code!=='ENOTDIR')throw e;return !path.endsWith('doc-evidence.json')&&/\.(py|cs|json|mjs|lua|ts|astro|svg|comp|vert|frag)$/.test(path)?[path]:[];}
 }
 export function sourceHashes(group){return Object.fromEntries([...new Set(definitions[group].sources.flatMap(s=>filesAt(resolve(root,s))))].sort().map(p=>[relative(root,p).replaceAll('\\','/'),createHash('sha256').update(readFileSync(p)).digest('hex')]));}
 export function registry(){return existsSync(file)?JSON.parse(readFileSync(file,'utf8')):{version:1,groups:{}};}

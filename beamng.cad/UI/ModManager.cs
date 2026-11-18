@@ -33,6 +33,22 @@ namespace BeamNG.Cad.UI
         private string imagePath="";
         private bool busy;
         private bool unappliedEdits;
+        private bool metadataDirty;
+        internal bool IsBusy=>busy;
+        internal VehicleProject CurrentProject=>project;
+        internal event Action ProjectChanged;
+        internal string TaskMessage=>status.Text;
+        internal string TaskLog=>log.Text;
+        internal void RefreshForWorkspace(){if(!busy)Guard(RefreshStatus);}
+        internal bool ResolveChanges()
+        {
+            if(busy)return false;
+            if(!metadataDirty)return true;
+            var answer=MessageBox.Show(this,"Save these metadata edits for future builds before continuing?\r\nThis does not change a generated package. Use Apply to selected build to create a metadata revision.","Pending vehicle metadata",MessageBoxButtons.YesNoCancel,MessageBoxIcon.Question);
+            if(answer==DialogResult.Cancel)return false;
+            if(answer==DialogResult.Yes){try{SaveProfile();metadataDirty=false;return true;}catch(Exception error){status.Text=error.Message;return false;}}
+            var profile=ModProfile.Load(profilePath);name.Text=profile.Name;brand.Text=profile.Brand;author.Text=profile.Author;description.Text=profile.Description;configuration.Text=profile.Configuration;SetImage(profile.PreviewImage??"");metadataDirty=false;return true;
+        }
         public ISldWorks SolidWorksApplication { get; set; }
         public ModManager(ExporterSettings settings,string profilePath)
             :this(settings,profilePath,null) {}
@@ -54,7 +70,7 @@ namespace BeamNG.Cad.UI
             Button(actions,"Create independent mod copy...",()=>{
                 if(this.project==null)throw new InvalidOperationException("Open a saved assembly's vehicle project first.");
                 using(var picker=new SaveFileDialog {Filter="Vehicle project|*.beamng-project.json",FileName="vehicle-copy.beamng-project.json"})
-                    if(picker.ShowDialog(this)==DialogResult.OK){SaveProfile();this.project=this.project.Fork(picker.FileName);this.profilePath=this.project.ProfilePath;settings.SelectProject(this.project);settings.Save();receipt.Clear();explicitBuild=false;RefreshStatus();}
+                    if(picker.ShowDialog(this)==DialogResult.OK){SaveProfile();this.project=this.project.Fork(picker.FileName);this.profilePath=this.project.ProfilePath;settings.SelectProject(this.project);settings.Save();receipt.Clear();explicitBuild=false;RefreshStatus();ProjectChanged?.Invoke();}
             });
             Button(actions,"Choose image...",()=> {using(var picker=new OpenFileDialog {Filter="Images|*.jpg;*.jpeg;*.png;*.bmp"})if(picker.ShowDialog(this)==DialogResult.OK)SetImage(ModPackage.ImportImage(picker.FileName,this.profilePath));});
             Button(actions,"Use hull image",()=>SetImage(ModPackage.HullImage(receipt.Text,this.profilePath)));
@@ -63,7 +79,7 @@ namespace BeamNG.Cad.UI
             var edit=new TableLayoutPanel {Dock=DockStyle.Top,AutoSize=true,ColumnCount=1};edit.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
             edit.Controls.Add(fields);edit.Controls.Add(selector);edit.Controls.Add(picture);edit.Controls.Add(actions);
             var buttons=new FlowLayoutPanel {Dock=DockStyle.Top,AutoSize=true};
-            Button(buttons,"Save for future builds",()=> {SaveProfile();status.Text="Name and image saved for future builds. Apply to update the selected build.";});
+            Button(buttons,"Save for future builds",()=> {SaveProfile();metadataDirty=false;status.Text="Name and image saved for future builds. Apply to update the selected build.";});
             applyButton=Button(buttons,"Apply to selected build",()=>Run(Apply));
             installButton=Button(buttons,"Install selected build",()=>Run(Install));
             Button(buttons,"Refresh status",RefreshStatus);
@@ -76,12 +92,12 @@ namespace BeamNG.Cad.UI
             var profile=ModProfile.Load(this.profilePath);name.Text=profile.Name;brand.Text=profile.Brand;author.Text=profile.Author;
             description.Text=profile.Description;configuration.Text=profile.Configuration;receipt.Text=project?.LastBuildReceipt??settings.LastBuildReceipt;
             try {SetImage(profile.PreviewImage??"");}catch(Exception e){WriteLog("Saved preview unavailable: "+e.Message);}
-            unappliedEdits=false;
-            foreach(var input in new[]{name,brand,author,description,configuration})input.TextChanged+=(s,e)=>{unappliedEdits=true;UpdateTitle();};
+            unappliedEdits=false;metadataDirty=false;
+            foreach(var input in new[]{name,brand,author,description,configuration})input.TextChanged+=(s,e)=>{unappliedEdits=true;metadataDirty=true;UpdateTitle();};
             UpdateTitle();
             Shown+=(s,e)=>Guard(RefreshStatus);
             Activated+=(s,e)=>{if(!busy)Guard(RefreshStatus);};
-            FormClosing+=(s,e)=> {if(busy)e.Cancel=true;};
+            FormClosing+=(s,e)=> {if(busy||!ResolveChanges())e.Cancel=true;};
             FormClosed+=(s,e)=>picture.Image?.Dispose();
         }
         private void UpdateTitle()=>selector.Text="Vehicle selector label: "+(brand.Text.Trim()+" "+name.Text.Trim()).Trim();
@@ -100,7 +116,7 @@ namespace BeamNG.Cad.UI
         {
             Image next=null;
             if(!string.IsNullOrEmpty(file))using(var original=Image.FromFile(file))next=new Bitmap(original);
-            var previous=picture.Image;picture.Image=next;previous?.Dispose();imagePath=file;unappliedEdits=true;
+            var previous=picture.Image;picture.Image=next;previous?.Dispose();imagePath=file;unappliedEdits=true;metadataDirty=true;
         }
         private void SaveProfile()=>new ModProfile {Name=name.Text.Trim(),Brand=brand.Text.Trim(),Author=author.Text.Trim(),Description=description.Text.Trim(),Configuration=configuration.Text.Trim(),PreviewImage=imagePath}.Save(profilePath);
         private async Task Apply()
@@ -108,7 +124,7 @@ namespace BeamNG.Cad.UI
             RefreshStatus();ValidateProjectBuild(receipt.Text);
             SaveProfile();
             receipt.Text=await ModPackage.CustomizeForProjectAsync(settings.PythonExecutable,receipt.Text,profilePath,new Progress<string>(WriteLog),CancellationToken.None,string.IsNullOrWhiteSpace(settings.FrameOutput)?null:settings.FrameOutput,project?.FilePath);
-            unappliedEdits=false;
+            unappliedEdits=false;metadataDirty=false;
             RememberBuild();RefreshStatus();
         }
         private async Task Install()
@@ -128,7 +144,7 @@ namespace BeamNG.Cad.UI
         {
             project?.SelectBuild(receipt.Text);settings.LastBuildReceipt=receipt.Text;
             if(project!=null)settings.LastProjectPath=project.FilePath;
-            settings.Save();
+            settings.Save();ProjectChanged?.Invoke();
         }
         private void ValidateProjectBuild(string path)
         {

@@ -10,7 +10,7 @@ using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 namespace BeamNG.Cad.Preparation
 {
-    internal sealed class FrameSelection
+    internal sealed partial class FrameSelection
     {
         private readonly ISldWorks app;
         private readonly ModelDoc2 model;
@@ -21,12 +21,19 @@ namespace BeamNG.Cad.Preparation
         public string Document => model.GetPathName();
         public void ValidateDocument()
         {
-            if (model.GetType() != (int)swDocumentTypes_e.swDocASSEMBLY || string.IsNullOrEmpty(Document))
-                throw new InvalidOperationException("Open and save the top-level assembly first.");
-            // COM wrappers can change across a modeless UI continuation. Ask
-            // SolidWorks for native identity instead of comparing managed wrappers.
-            if (app.ActiveDoc == null || app.IsSame(app.ActiveDoc, model) != (int)swObjectEquality.swObjectSame)
-                throw new InvalidOperationException("Activate the assembly used by this frame window.");
+            try
+            {
+                // Check native identity before dereferencing a possibly closed document.
+                var active=app.ActiveDoc;
+                if (active == null || app.IsSame(active, model) != (int)swObjectEquality.swObjectSame)
+                    throw new InvalidOperationException("Activate the assembly used by this frame editor. If it was reopened, return to Frame to reload its CAD context.");
+                if (model.GetType() != (int)swDocumentTypes_e.swDocASSEMBLY || string.IsNullOrEmpty(Document))
+                    throw new InvalidOperationException("Open and save the top-level assembly first.");
+            }
+            catch(System.Runtime.InteropServices.COMException error) when(error.ErrorCode==unchecked((int)0x80010108))
+            {
+                throw new InvalidOperationException("The CAD document was closed or replaced. Activate the saved source assembly and refresh the frame preview.",error);
+            }
         }
         private string Reference(object item)
         {

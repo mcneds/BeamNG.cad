@@ -89,7 +89,8 @@ namespace BeamNG.Cad.Preparation
             if(receipt.SourceComponents==null)return "Existing companion linked. First update will establish assignment tracking; matching groups are retained.";
             var before=receipt.SourceComponents.ToDictionary(c=>c.Id);var now=source.Components.ToDictionary(c=>c.Id);
             var added=now.Keys.Except(before.Keys).Count();var removed=before.Keys.Except(now.Keys).Count();var changed=now.Keys.Intersect(before.Keys).Count(id=>State(now[id])!=State(before[id]));
-            var layout=Serialized(source.MvpTemplates,typeof(List<MvpTemplateChoice>))!=Serialized(receipt.SourceTemplates,typeof(List<MvpTemplateChoice>));
+            var layout=Serialized(source.MvpTemplates,typeof(List<MvpTemplateChoice>))!=Serialized(receipt.SourceTemplates,typeof(List<MvpTemplateChoice>))||
+                Serialized(source.Driveline,typeof(Driveline))!=Serialized(receipt.SourceDriveline,typeof(Driveline));
             var order=!source.Components.Select(c=>c.Id).SequenceEqual(receipt.SourceComponents.Select(c=>c.Id));
             var additions=now.Keys.Except(before.Keys).Select(id=>now[id].Name).ToArray();
             var replacements=AssociationAssembly.ReplacementIds(receipt).Count;

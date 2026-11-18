@@ -37,7 +37,8 @@ namespace BeamNG.Cad.UI
         private readonly CoiloverPanel coiloverPanel=new CoiloverPanel();
         private readonly FrameAssignmentPanel frameAssignment=new FrameAssignmentPanel();
         private readonly CompanionAssemblyPanel companionPanel=new CompanionAssemblyPanel();
-        private readonly Button assignSelection=new Button {Name="AssignCurrentSelection",Text="Assign current selection",AutoSize=true};
+        private readonly Button assignSelection=new Button {Name="AssignCurrentSelection",Text="Set to selected",AutoSize=true};
+        private readonly Button addToGroup=new Button {Name="AddToGroup",Text="Add to group",AutoSize=true};
         private readonly Button assignComponents=new Button {Name="AssignWholeComponents",Text="Assign whole components",AutoSize=true};
         private FrameAssignment savedFrame;
         private string savedFrameError;
@@ -78,6 +79,7 @@ namespace BeamNG.Cad.UI
         private bool closing;
         private bool refreshingComponents;
         private string batchDetail="";
+        private string lastSearch="";
         private ComponentDefinition Selected=>components.SelectedItem as ComponentDefinition;
         private string Worker=>Path.Combine(Path.GetDirectoryName(typeof(ComponentWorkflow).Assembly.Location),"FramePipeline","component_worker.py");
         private sealed class AnchorItem {public string Id;public string Label {get;set;}}
@@ -89,7 +91,7 @@ namespace BeamNG.Cad.UI
             settings=preferences;project=OpenSelectedProject();
             Text="beamng.cad - Components and mounts";Width=1050;Height=900;MinimumSize=new System.Drawing.Size(850,650);ShowInTaskbar=false;
             template.Items.AddRange(new object[]{"auto","bulk","panel"});template.SelectedIndex=0;
-            method.Items.AddRange(new object[]{"auto","alpha_wrap","convex"});method.SelectedIndex=0;
+            method.Items.AddRange(new object[]{"auto","alpha_wrap","convex","rigid"});method.SelectedIndex=0;
             surfaceMass.Items.AddRange(new object[]{"Use thickness + SolidWorks material","Exclude surface mass"});surfaceMass.SelectedIndex=0;thickness.Name="SurfaceThickness";
             representation.Items.AddRange(new object[]{"Physical component","Visual only"});massPolicy.Items.AddRange(new object[]{"Use CAD / material mass","Custom mass","Exclude mass"});
             visualParent.SelectedIndexChanged+=(s,e)=>RefreshVisualMembers();
@@ -111,11 +113,11 @@ namespace BeamNG.Cad.UI
             Button(setupButtons,"Apply vehicle setup",()=>Run(()=>{if(Selected!=null)SaveParameters();project.MvpTemplates=templateChoices.Select(p=>new MvpTemplateChoice {Category=p.Key,Template=((MvpTemplateOption)p.Value.SelectedItem).Id}).ToList();var imported=!string.IsNullOrEmpty(project.PhysicsTemplateReceipt);if(!imported)mvpCatalog.AddMissingGroups(project);Save();RefreshLists();RefreshRoles(Selected);status.Text=imported?"Layout selected for the guide. This project uses imported physics; start a fresh physical project to generate the new layout and its required groups. Saved assignments are retained.":"Required groups updated. Missing CAD assignments are listed explicitly. Groups outside this setup are retained.";return Task.CompletedTask;}));
             var definitionButtons=Section(setupStack,"2. Review joints and mounts","Use Joints & mounts to bind native CAD mates and reference points, including detachable panel fasteners. Complete the mounting plan before fresh frame calibration. Reviewed template JSON can also supply explicit hardpoints.");
             ReferenceLink(definitionButtons,()=>tabs.SelectedTab=referencePage);
-            Button(definitionButtons,"Load template hardpoints",()=>Run(()=>{using(var dialog=new OpenFileDialog {Filter="Vehicle template definition (*.json)|*.json",Title="Choose the reviewed template and mounting definition"})if(dialog.ShowDialog(this)==DialogResult.OK){project.TemplateDefinitionPath=dialog.FileName;Save();status.Text="Template definition selected. Its mounting plan must be included in fresh frame calibration.";}return Task.CompletedTask;}));
+            Button(definitionButtons,"Load template hardpoints",()=>Run(()=>{using(var dialog=new OpenFileDialog {Filter="Vehicle template definition (*.json)|*.json",Title="Choose the reviewed template and mounting definition"})if(dialog.ShowDialog(this)==DialogResult.OK){LoadReviewedDefinition(dialog.FileName);Save();RefreshLists();status.Text="Template definition selected. Its mounting plan must be included in fresh frame calibration.";}return Task.CompletedTask;}));
             var importButtons=Section(setupStack,"Project","Start fresh without importing physics, open saved work, or optionally reuse an existing physics package. A fresh project is saved separately; your current work is kept.");
             importButtons.Controls.Add(templateImport);templateImport.ImportRequested+=()=>Run(ImportPhysicsTemplate);
             templateImport.ResetRequested+=()=>Run(ResetPhysicsTemplate);
-            templateImport.FreshRequested+=()=>Run(StartFreshProject);templateImport.OpenRequested+=()=>Run(OpenProject);
+            templateImport.FreshRequested+=()=>{if(FreshProjectRequested!=null)FreshProjectRequested();else Run(StartFreshProject);};templateImport.OpenRequested+=()=>Run(OpenProject);
             var working=Section(setupStack,"Working CAD assembly","Keep reference work in a companion assembly. Update after editing source assignments; unchanged parts and sketches stay in place. Changed geometry gets a new part and may need mount repair. Each update opens a new revision and keeps the previous one.");
             working.Controls.Add(companionPanel);companionPanel.CreateRequested+=()=>Run(CreateWorkingAssembly);
             // These commands open/activate their own linked documents. A source
@@ -141,20 +143,29 @@ namespace BeamNG.Cad.UI
             search.Controls.Add(new Label {AutoSize=true,Text="Find component (name or role)"});search.Controls.Add(componentSearch);search.Controls.Add(componentCount);
             groupColumn.Controls.Add(assignmentInspection,0,0);groupColumn.Controls.Add(search,0,1);groupColumn.Controls.Add(components,0,2);
             partLayout.Controls.Add(groupColumn,0,0);partLayout.Controls.Add(details,1,0);partPage.Controls.Add(partLayout);
+            partLayout.Resize+=(s,e)=>
+            {
+                var narrow=partLayout.ClientSize.Width<760;
+                var browserHeight=Math.Min(480,Math.Max(320,partLayout.ClientSize.Height-180));
+                ResponsiveLayout.Split(partLayout,groupColumn,details,narrow,browserHeight);
+                if(narrow)partLayout.RowStyles[0].Height=browserHeight;
+            };
+
             assignmentInspection.ShowRequested+=()=>Run(ShowAssignedGeometry);
             components.DoubleClick+=(s,e)=>assignmentInspection.ShowCurrent();
             var assignment=DetailPage(details,"CAD assignment");
-            var partButtons=Section(assignment,"Assign a physical group","Select a group row, pick its CAD bodies or instances, then assign. New tagged group adds a saved empty row immediately; choose its role and name, then assign geometry. The frame uses the saved definition shown below. Assignments reload after restarting SolidWorks.");
+            var partButtons=Section(assignment,"Assign a physical group","Select a group row and pick CAD bodies or instances. Set to selected replaces its saved geometry; Add to group keeps it and adds your selection. New tagged group saves an empty row. The frame uses the saved definition shown below. Assignments reload after restarting SolidWorks.");
             Button(partButtons,"Moving pieces / split for mates",()=>Run(EditMovingMembers));
             Labeled(partButtons,"Role",mvpRole);Labeled(partButtons,"Name",componentName);
             ReferenceLink(partButtons,()=>{referenceSkeleton.SelectRole((mvpRole.SelectedItem as MvpRole)?.Id);tabs.SelectedTab=referencePage;});
             Button(partButtons,"New tagged group",()=>Run(NewTaggedGroup));
             assignSelection.Click+=(s,e)=>Run(AddComponent);assignComponents.Click+=(s,e)=>Run(()=>AddAssignment(true));
-            partButtons.Controls.Add(assignSelection);partButtons.Controls.Add(assignComponents);
+            addToGroup.Click+=(s,e)=>Run(()=>AssignGeometry(false,true));
+            partButtons.Controls.Add(assignSelection);partButtons.Controls.Add(addToGroup);partButtons.Controls.Add(assignComponents);
             partButtons.Controls.Add(frameAssignment);
             frameAssignment.DefineRequested+=()=>Run(OpenFrameDefinition);frameAssignment.UseSavedRequested+=()=>Run(AddFrame);
             var ownership=Section(assignment,"Selected group","Faces select their owning body. For the frame, save the frame selection in the frame workflow before using Use saved frame.");
-            Button(ownership,"Save group name / role",()=>Run(()=>{SaveParameters();return Task.CompletedTask;}));
+
             Button(ownership,"Remove component",()=>Run(()=>{RemoveComponent();return Task.CompletedTask;}));
             var appearance=Section(DetailPage(details,"Appearance"),"Assign the visible mesh","Generation uses the physical CAD by default. A separate appearance assignment overrides its visible mesh. Pending means the saved appearance still needs packaging; it does not change physical mass or ownership.");
             Button(appearance,"Save visual assignment",()=>Run(ReplaceAppearance));
@@ -167,7 +178,7 @@ namespace BeamNG.Cad.UI
             coiloverPanel.ShowRequested+=()=>Run(()=>{var piece=Required().AppearanceCoilover?.Pieces.FirstOrDefault(p=>p.Kind==coiloverPanel.Kind)??throw new InvalidOperationException("Assign this coilover piece first.");if(!ComponentAssignments.SameDocument(piece.SourceDocument,selection.Document))throw new InvalidOperationException("Activate the assembly containing this piece.");selection.Show(CoiloverAppearance.Assignment(piece));model.ViewZoomToSelection();return Task.CompletedTask;});
             coiloverPanel.ClearRequested+=()=>Run(()=>{var c=Required();c.AppearanceCoilover?.Pieces.RemoveAll(p=>p.Kind==coiloverPanel.Kind);CoiloverAppearance.Pending(c);Save();RefreshLists();return Task.CompletedTask;});
             coiloverPanel.MountChanged+=()=>Run(()=>{var c=Required();c.AppearanceCoilover=c.AppearanceCoilover??new CoiloverAppearance();c.AppearanceCoilover.HousingMount=coiloverPanel.HousingMount;CoiloverAppearance.Pending(c);Save();RefreshLists();return Task.CompletedTask;});
-            coiloverPanel.SpringSaveRequested+=()=>Run(()=>{var c=Required();if(!CoiloverAppearance.Supported(c))throw new InvalidOperationException("Select a coilover group.");c.CoiloverSpring=coiloverPanel.SpringSettings;Save();RefreshLists();status.Text="Spring settings saved. Regenerate physics / package applies them; Package saved appearances preserves the existing spring rates.";return Task.CompletedTask;});
+
             continueTemplate=()=>
             {
                 tabs.SelectedTab=partPage;
@@ -182,17 +193,17 @@ namespace BeamNG.Cad.UI
             Labeled(materialButtons,"Surface weight",surfaceMass);Labeled(materialButtons,"Thickness mm",thickness);Labeled(materialButtons,"Visual parent",visualParent);
             Labeled(materialButtons,"Component physics",representation);Labeled(materialButtons,"Mass contribution",massPolicy);Labeled(materialButtons,"Custom mass kg",customMass);Labeled(materialButtons,"Moving parent member",visualMember);
             materialButtons.Controls.Add(new Label {AutoSize=true,MaximumSize=new System.Drawing.Size(700,0),Text="Visual only follows its physical parent: no independent collision, structural response or breakaway. Its mass can still be carried by the parent. Excluded mass always stays labelled."});
-            Button(materialButtons,"Save representation / mass",()=>Run(()=>{SaveParameters();return Task.CompletedTask;}));
+
             Button(materialButtons,"Accept visual only with excluded mass",()=>Run(AcknowledgeVisualMass));
             materialButtons.Controls.Add(flipAutoNormal);
-            Button(materialButtons,"Save surface settings",()=>Run(()=>{SaveParameters();return Task.CompletedTask;}));
+
             var refit=Section(properties,"Refit an existing physical graph","Use this only to apply new CAD mass, centre and inertia to an existing package. Node positions and mounts stay fixed. A frame needs the separate frame calibration workflow.");
             Button(refit,"Recalibrate properties from selection",()=>Run(RecalibrateProperties));
             var hull=DetailPage(details,"Hull preview");
             var hullButtons=Section(hull,"Representation and density","Start with Auto and zero-valued density settings. Preview one group to inspect its collision representation. Suspension physics uses the reviewed parametric template when building a complete vehicle.");
             Labeled(hullButtons,"Representation",template);Labeled(hullButtons,"Bulk method",method);
             Labeled(hullButtons,"Spacing mm (0 auto)",spacing);Labeled(hullButtons,"Alpha mm (0 auto)",alpha);Labeled(hullButtons,"Wrap offset mm",wrapOffset);
-            Button(hullButtons,"Save parameters",()=>Run(()=>{SaveParameters();return Task.CompletedTask;}));
+
             Button(hullButtons,"Estimate from CAD",()=>Run(Suggest));Button(hullButtons,"Generate / preview",()=>Run(Preview));hullButtons.Controls.Add(visible);
             foreach(var panel in new[]{ownership,appearance,materialButtons,refit,hullButtons})
                 componentActions.AddRange(panel.Controls.OfType<Button>());
@@ -231,30 +242,32 @@ namespace BeamNG.Cad.UI
             jointsPanel.OwnerSelected+=id=>{var item=project.Components.FirstOrDefault(c=>c.Id==id);if(item!=null)components.SelectedItem=item;};
             jointsPanel.HighlightRequested+=id=>Run(()=>{HighlightJoint(id);return Task.CompletedTask;});
             jointsPanel.MembersRequested+=()=>Run(EditMovingMembers);
-            var buildPage=new TabPage("Build / test");var buildStack=Sections();buildPage.AutoScroll=true;buildPage.Controls.Add(buildStack);tabs.TabPages.Add(buildPage);
+            var buildPage=new TabPage("Build");var buildStack=Sections();buildPage.AutoScroll=true;buildPage.Controls.Add(buildStack);tabs.TabPages.Add(buildPage);
             var refresh=Section(buildStack,"1. Export current CAD","For the first real-data pass, refresh the tagged groups and inspect the checklist. Fix missing roles, duplicate ownership and material inputs before building.");
             Button(refresh,"Refresh tagged CAD",()=>Run(RefreshTaggedCad));
             var generation=Section(buildStack,"2. Generate a fresh package","Load reviewed real hardpoints, then prepare, calibrate and package the frame with that mounting plan. This step refreshes physical CAD and builds the full vehicle.");
             Button(generation,"Regenerate physics / package",()=>Run(Build));
             Button(generation,"Package saved appearances",()=>Run(PackageAppearances));
-            var verification=Section(buildStack,"3. Verify and install","Verify package runs the full 24-scenario vehicle suite and stops on failure. Use the recorded results and captures to review the build before installing.");
+            var verifyPage=new TabPage("Verify") {AutoScroll=true};var verifyStack=Sections();verifyPage.Controls.Add(verifyStack);tabs.TabPages.Add(verifyPage);
+            var verification=Section(verifyStack,"Review the generated package","Verify package runs the full 24-scenario vehicle suite and stops on failure. Use the recorded results and captures to review the build before installing.");
             Button(verification,"Verify package",()=>Run(Verify));
-            Button(verification,"Manage project mod",()=>Run(()=>{new ModManager(settings.Reload(),null,VehicleProject.Load(project.FilePath)) {SolidWorksApplication=app}.Show(this);return Task.CompletedTask;}));
+            Button(verification,"Manage project mod",()=>Run(()=>{if(NavigationRequested!=null)NavigationRequested("Delivery");else new ModManager(settings.Reload(),null,VehicleProject.Load(project.FilePath)) {SolidWorksApplication=app}.Show(this);return Task.CompletedTask;}));
             var logPage=new TabPage("Log");logPage.Controls.Add(log);tabs.TabPages.Add(logPage);
+            InitializeDriveline(tabs);
             editor.Controls.Add(tabs);Controls.Add(editor);Controls.Add(progress);Controls.Add(status);Controls.Add(activeProject);
             status.Padding=new Padding(8);SizeChanged+=(s,e)=>status.MaximumSize=new System.Drawing.Size(Math.Max(200,ClientSize.Width-16),0);
             stop.Click+=(s,e)=>cancel?.Cancel();Controls.Add(stop);
-            components.SelectedIndexChanged+=(s,e)=>{if(!refreshingComponents)LoadParameters();};anchors.SelectedIndexChanged+=(s,e)=>{if(anchors.SelectedItem is MountAnchor a){anchorName.Text=a.Name;for(var i=0;i<3;i++)offsets[i].Value=Clamp(offsets[i],a.Offset[i]*1000);}};
-            componentSearch.TextChanged+=(s,e)=>{if(!refreshingComponents)RefreshComponentList();};
+            components.SelectedIndexChanged+=(s,e)=>ComponentSelectionChanged();anchors.SelectedIndexChanged+=(s,e)=>{if(anchors.SelectedItem is MountAnchor a){anchorName.Text=a.Name;for(var i=0;i<3;i++)offsets[i].Value=Clamp(offsets[i],a.Offset[i]*1000);}};
+            componentSearch.TextChanged+=(s,e)=>{if(!refreshingComponents){if(ResolveDraft())RefreshComponentList();else {refreshingComponents=true;componentSearch.Text=lastSearch;refreshingComponents=false;}}lastSearch=componentSearch.Text;};
             componentSearch.KeyDown+=(s,e)=>{if(e.KeyCode==Keys.Escape){componentSearch.Clear();e.SuppressKeyPress=true;}};
             KeyPreview=true;KeyDown+=(s,e)=>{if(e.Control&&e.KeyCode==Keys.F){tabs.SelectedTab=partPage;componentSearch.Focus();componentSearch.SelectAll();e.SuppressKeyPress=true;}};
             mvpRole.SelectedIndexChanged+=(s,e)=>{referenceSkeleton.SelectRole((mvpRole.SelectedItem as MvpRole)?.Id);UpdateFrameActions();};
             connections.SelectedIndexChanged+=(s,e)=>{if(connections.SelectedItem is MountConnection c){mountName.Text=c.Name;spring.Value=Clamp(spring,c.Spring);damping.Value=Clamp(damping,c.Damping);strength.Value=Clamp(strength,c.Strength);releaseSet.Text=c.ReleaseSet??"";attachmentLength.Value=Clamp(attachmentLength,(c.AttachmentLength>0?c.AttachmentLength:.006)*1000);joint.SelectedItem=joint.Items.Cast<AnchorItem>().FirstOrDefault(a=>a.Id==c.Template);parentAnchor.SelectedItem=parentAnchor.Items.Cast<AnchorItem>().FirstOrDefault(a=>a.Id==c.AnchorA);childAnchor.SelectedItem=childAnchor.Items.Cast<AnchorItem>().FirstOrDefault(a=>a.Id==c.AnchorB);}};
             visible.CheckedChanged+=(s,e)=>{if(cancel==null)Run(async()=>{foreach(var item in previews)await item.Value.SetVisibleAsync(visible.Checked && item.Key==Selected?.Id);});};
-            FormClosing+=(s,e)=>{if(cancel!=null){e.Cancel=true;closing=true;cancel.Cancel();}};
+            FormClosing+=(s,e)=>{if(cancel!=null){e.Cancel=true;closing=true;cancel.Cancel();}else if(!ResolveDraft())e.Cancel=true;};
             FormClosed+=(s,e)=>{foreach(var preview in previews.Values)preview.Dispose();};
             Activated+=(s,e)=>{if(cancel==null){RefreshFrameDefinition();RefreshCompanion();}};
-            RefreshFrameDefinition();RefreshLists();status.Text="Project package: "+project.Identity.Namespace+".zip";
+            RefreshFrameDefinition();RefreshLists();InitializeDrafts();status.Text="Project package: "+project.Identity.Namespace+".zip";
         }
         private static NumericUpDown Number(decimal min,decimal max,decimal value)=>new NumericUpDown {Minimum=min,Maximum=max,Value=value,DecimalPlaces=2,Width=100};
         private static decimal Clamp(NumericUpDown field,double value)=>Math.Max(field.Minimum,Math.Min(field.Maximum,(decimal)value));
@@ -268,7 +281,7 @@ namespace BeamNG.Cad.UI
         private static void Button(Control root,string name,Action action){var b=new Button {Text=name,AutoSize=true};b.Click+=(s,e)=>action();root.Controls.Add(b);}
         private static void ReferenceLink(Control root,Action action){var link=new LinkLabel {Text="Locate on reference skeleton",AutoSize=true,Margin=new Padding(3,8,3,8)};link.LinkClicked+=(s,e)=>action();root.Controls.Add(link);}
         private new static void Layout(TabPage page,Control top,Control body){page.Controls.Add(body);page.Controls.Add(top);}
-        private static TableLayoutPanel Sections()=>new TableLayoutPanel {Dock=DockStyle.Top,AutoSize=true,ColumnCount=1,Padding=new Padding(10)};
+        private static TableLayoutPanel Sections(){var table=new TableLayoutPanel {Dock=DockStyle.Top,AutoSize=true,ColumnCount=1,Padding=new Padding(10)};table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));return table;}
         private static TableLayoutPanel DetailPage(TabControl tabs,string title)
         {
             var page=new TabPage(title) {AutoScroll=true};var stack=Sections();page.Controls.Add(stack);tabs.TabPages.Add(page);return stack;
@@ -278,6 +291,7 @@ namespace BeamNG.Cad.UI
             var group=new GroupBox {Text=title,AutoSize=true,Dock=DockStyle.Fill,Padding=new Padding(10),Margin=new Padding(0,0,0,12)};
             var body=Flow();body.FlowDirection=FlowDirection.TopDown;body.WrapContents=false;
             body.Controls.Add(new Label {Text=description,AutoSize=true,MaximumSize=new System.Drawing.Size(460,0),Margin=new Padding(3,4,3,12)});
+            ResponsiveLayout.FlowSection(group,body);
             group.Controls.Add(body);stack.RowStyles.Add(new RowStyle(SizeType.AutoSize));stack.Controls.Add(group,0,stack.RowCount++);return body;
         }
         private static void Labeled(Control parent,string title,Control value)
@@ -305,10 +319,11 @@ namespace BeamNG.Cad.UI
         private void Save()
         {
             // Preserve packaging/profile changes made by a modeless manager.
-            var latest=VehicleProject.Load(project.FilePath);project.LastBuildReceipt=latest.LastBuildReceipt;project.FrameBuildReceipt=latest.FrameBuildReceipt;project.Save();
+            var latest=VehicleProject.Load(project.FilePath);project.LastBuildReceipt=latest.LastBuildReceipt;project.FrameBuildReceipt=latest.FrameBuildReceipt;project.Save();ProjectChanged?.Invoke();
         }
         private void RefreshLists()
         {
+            drivelinePanel.Configure(project);
             UpdateAttachmentControls();
             activeProject.Text=project.Components.Count+" groups | Project: "+project.FilePath;
             Text="beamng.cad - "+Path.GetFileName(project.SourceDocument)+" - Components and mounts";
@@ -347,22 +362,35 @@ namespace BeamNG.Cad.UI
         {
             // Preserve an entered name without copying the untouched name of
             // whichever existing group happens to be selected.
-            var created=ComponentAssignments.CreateNamedGroup(project,mvpRole.SelectedItem as MvpRole,componentName.Modified?componentName.Text:null);
+            ComponentDefinition created;
+            using(var dialog=new Form {Text="New CAD group",Width=480,Height=230,StartPosition=FormStartPosition.CenterParent})
+            {
+                var fields=new FlowLayoutPanel {Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,WrapContents=false,Padding=new Padding(12)};
+                var role=new ComboBox {Name="NewGroupRole",DropDownStyle=ComboBoxStyle.DropDownList,Width=400,DisplayMember="Label"};
+                role.Items.AddRange(new[]{new MvpRole {Id="",Label="Unassigned role",Representation="auto"}}.Concat(mvpCatalog.ActiveRoles(project)).Cast<object>().ToArray());role.SelectedIndex=0;
+                var name=new TextBox {Name="NewGroupName",Width=400,Text="New component"};
+                fields.Controls.Add(new Label {Text="Choose this new group's role and name.",AutoSize=true});fields.Controls.Add(role);fields.Controls.Add(name);
+                var add=new Button {Text="Create empty group",DialogResult=DialogResult.OK,AutoSize=true};fields.Controls.Add(add);dialog.Controls.Add(fields);dialog.AcceptButton=add;
+                if(dialog.ShowDialog(this)!=DialogResult.OK)return Task.CompletedTask;
+                created=ComponentAssignments.CreateNamedGroup(project,(MvpRole)role.SelectedItem,name.Text);
+            }
             Save();refreshingComponents=true;
             try {componentSearch.Clear();} finally {refreshingComponents=false;}
             RefreshLists();components.SelectedItem=created;componentName.Focus();componentName.SelectAll();
-            status.Text="New empty group saved. Choose its role and name, pick its CAD bodies, then Assign current selection. Remove component discards an unwanted empty group.";
+            status.Text="New empty group saved. Choose its role and name, pick its CAD bodies, then Set to selected. Remove component discards an unwanted empty group.";
             return Task.CompletedTask;
         }
         private void LoadParameters()
         {
+            loadingDraft=true;
+            try {
             mountOwner.SelectOwner(Selected?.Id);RefreshMountAnchors();
             UpdateFrameActions();
             assignmentInspection.PreferAppearance=!string.IsNullOrEmpty(project.PhysicsTemplateReceipt) &&
                 (Selected==null || ComponentAssignments.State(project,Selected,false)!="saved");
             assignmentInspection.SetComponent(Selected);
             coiloverPanel.SetComponent(Selected);
-            var c=Selected;foreach(var action in componentActions)action.Enabled=c!=null;if(c==null)return;componentName.Text=c.Name;componentName.Modified=false;template.SelectedItem=c.Template;method.SelectedItem=c.Method;
+            var c=Selected;draftOwner=c;foreach(var action in componentActions)action.Enabled=c!=null;if(c==null)return;componentName.Text=c.Name;componentName.Modified=false;template.SelectedItem=c.Template;method.SelectedItem=c.Method;
             RefreshRoles(c);
             spacing.Value=Clamp(spacing,c.Spacing*1000);alpha.Value=Clamp(alpha,c.Alpha*1000);wrapOffset.Value=Clamp(wrapOffset,c.WrapOffset*1000);
             thickness.Value=Clamp(thickness,c.Thickness*1000);surfaceMass.SelectedIndex=c.SurfaceMassMode=="ignore"?1:0;
@@ -371,6 +399,7 @@ namespace BeamNG.Cad.UI
             representation.SelectedIndex=c.Representation=="visual_only"?1:0;massPolicy.SelectedIndex=c.MassPolicy=="custom"?1:c.MassPolicy=="exclude"?2:0;customMass.Value=Clamp(customMass,c.CustomMassKg);RefreshVisualMembers();
             flipAutoNormal.Checked=c.AutoConnectNormalFlip;
             if(cancel==null && previews.Count>0)Run(async()=>{foreach(var item in previews)await item.Value.SetVisibleAsync(visible.Checked&&item.Key==c.Id);});
+            } finally {loadingDraft=false;draftBaseline=DraftKey();UpdateDraftState();}
         }
         private void RefreshRoles(ComponentDefinition component)
         {
@@ -381,21 +410,25 @@ namespace BeamNG.Cad.UI
         }
         private void SaveParameters()
         {
-            var c=Required();c.Name=componentName.Text.Trim();if(c.Name.Length==0)throw new InvalidOperationException("Name the component.");
+            var c=draftOwner??Required();var nextName=componentName.Text.Trim();if(nextName.Length==0)throw new InvalidOperationException("Name the component.");c.Name=nextName;
             c.MvpRole=c.Template=="calibrated_frame"?"frame":(mvpRole.SelectedItem as MvpRole)?.Id??"";
             if(c.Template!="calibrated_frame"){c.Template=(string)template.SelectedItem??"auto";c.Method=(string)method.SelectedItem??"auto";c.Spacing=(double)spacing.Value/1000;c.Alpha=(double)alpha.Value/1000;c.WrapOffset=(double)wrapOffset.Value/1000;}
             c.Thickness=(double)thickness.Value/1000;c.SurfaceMassMode=surfaceMass.SelectedIndex==1?"ignore":"thickness";c.VisualParentId=(visualParent.SelectedItem as AnchorItem)?.Id??"";
             c.Representation=representation.SelectedIndex==1?"visual_only":"physical";c.MassPolicy=massPolicy.SelectedIndex==1?"custom":massPolicy.SelectedIndex==2?"exclude":"cad";c.CustomMassKg=(double)customMass.Value;c.VisualParentMemberId=(visualMember.SelectedItem as AnchorItem)?.Id??"";
             c.AutoConnectNormalFlip=flipAutoNormal.Checked;
+            if(CoiloverAppearance.Supported(c))c.CoiloverSpring=coiloverPanel.SpringSettings;
             Save();RefreshLists();
         }
         private Task AddComponent()=>AddAssignment(false);
-        private Task AddAssignment(bool wholeComponents)
+        private Task AddAssignment(bool wholeComponents)=>AssignGeometry(wholeComponents,false);
+        private Task AssignGeometry(bool wholeComponents,bool append)
         {
             var component=Selected??new ComponentDefinition();
             var role=(mvpRole.SelectedItem as MvpRole)?.Id??"";
             if(component.Template=="calibrated_frame"||role=="frame")throw new InvalidOperationException("Frame assignment uses Define / edit frame > Use current selection, then Use saved frame here. The definition and project assignment persist between restarts.");
-            var captured=wholeComponents?selection.CaptureOwningComponents():selection.Capture();var ids=selection.BodyIds(captured);
+            var captured=wholeComponents?selection.CaptureOwningComponents():selection.Capture();
+            if(append)captured=ComponentAssignments.CombinedPhysical(component,captured,selection.Document);
+            var ids=selection.BodyIds(captured);
             ComponentAssignments.Physical(project,component,captured,ids,selection.Document);
             component.Name=componentName.Text.Trim();component.Template=(string)template.SelectedItem??"auto";component.Method=(string)method.SelectedItem??"auto";
             component.Spacing=(double)spacing.Value/1000;component.Alpha=(double)alpha.Value/1000;component.WrapOffset=(double)wrapOffset.Value/1000;
@@ -406,7 +439,7 @@ namespace BeamNG.Cad.UI
             component.MvpRole=role;
             if(!project.Components.Contains(component))project.Components.Add(component);
             Save();RefreshLists();components.SelectedItem=component;assignmentInspection.Appearance=false;
-            status.Text="CAD assignment saved: "+component.Name+" ("+captured.CaptureSummary(ids.Count)+"). Use Show in SolidWorks to inspect it. Refresh tagged CAD exports it when needed.";
+            status.Text="CAD assignment saved: "+component.Name+" ("+(append?ids.Count+" unique bodies in group":captured.CaptureSummary(ids.Count))+"). Use Show in SolidWorks to inspect it. Refresh tagged CAD exports it when needed.";
             return Task.CompletedTask;
         }
         private Task AddFrame()
@@ -433,7 +466,7 @@ namespace BeamNG.Cad.UI
         private void UpdateFrameActions()
         {
             var isFrame=Selected?.Template=="calibrated_frame" || (mvpRole.SelectedItem as MvpRole)?.Id=="frame";
-            assignSelection.Enabled=Selected!=null&&!isFrame;assignComponents.Enabled=Selected!=null&&!isFrame;
+            assignSelection.Enabled=Selected!=null&&!isFrame;addToGroup.Enabled=Selected!=null&&!isFrame;assignComponents.Enabled=Selected!=null&&!isFrame;
             var component=project.Components.FirstOrDefault(c=>c.Template=="calibrated_frame");
             var state=component==null?"missing":ComponentAssignments.State(project,component,false);
             if(state=="saved"&&component.Configuration!=selection.Configuration)state="saved for configuration '"+component.Configuration+"'";
@@ -441,6 +474,7 @@ namespace BeamNG.Cad.UI
         }
         private Task OpenFrameDefinition()
         {
+            if(NavigationRequested!=null){BeginInvoke(new Action(()=>NavigationRequested("Frame")));return Task.CompletedTask;}
             var existing=System.Windows.Forms.Application.OpenForms.OfType<FrameWorkflow>().FirstOrDefault(f=>f.IsForDocument(selection.Document));
             if(existing!=null){existing.Activate();return Task.CompletedTask;}
             new FrameWorkflow(app,model).Show(this);return Task.CompletedTask;
@@ -573,7 +607,7 @@ namespace BeamNG.Cad.UI
             var stamp=model.GetUpdateStamp();
             foreach(var c in project.Components){cancel.Token.ThrowIfCancellationRequested();await Export(c);await ExportCoilover(c);}
             ResolveAnchors();Save();if(model.GetUpdateStamp()!=stamp)throw new InvalidOperationException("CAD changed between component exports. Regenerate the package.");
-            var vehicle=project.JointWorkspace.Mode=="authored"||!string.IsNullOrWhiteSpace(project.TemplateDefinitionPath);
+            var vehicle=project.Driveline!=null||project.JointWorkspace.Mode=="authored"||!string.IsNullOrWhiteSpace(project.TemplateDefinitionPath);
             if(vehicle)await EnsureCurrentFrame();
             else if(!File.Exists(project.FrameBuildReceipt))throw new InvalidOperationException("Package the calibrated frame for this project before packaging components.");
             var path=NewFolder(vehicle?"vehicle":"components");await WorkerRun(vehicle?"vehicle":"build",path);
@@ -586,6 +620,7 @@ namespace BeamNG.Cad.UI
         {
             var component=Required();
             if(CoiloverAppearance.Active(component))throw new InvalidOperationException("This coilover uses separate moving pieces. Use the Coilover tab to update housing, shaft or spring. Clear all three slots there to return to a combined visual assignment.");
+            if(project.Driveline?.Shafts.Any(s=>s.Component==component.Id&&!string.IsNullOrEmpty(s.Member))==true)throw new InvalidOperationException("This shaft uses independently moving members. Keep their physical CAD meshes, or use separate section groups for independent appearance replacement.");
             var assignment=selection.Capture();
             ComponentAssignments.Appearance(component,assignment,selection.Document);Save();RefreshLists();components.SelectedItem=component;assignmentInspection.Appearance=true;
             status.Text="Visual assignment saved: "+component.Name+" ("+assignment.Selections.Count+" selections). You can inspect/zoom now. Package saved appearances updates the mod separately.";
@@ -663,6 +698,7 @@ namespace BeamNG.Cad.UI
                 },cancel.Token);
                 CompanionAssemblyLink.Register(result.ReceiptPath);
                 settings.SelectProject(result.Project);settings.LastBuildReceipt="";settings.Save();
+                if(ContextChanged!=null){ContextChanged(result.Project,result.Document);return;}
                 var window=new ComponentWorkflow(app,result.Document,settings);
                 window.status.Text="Working assembly saved. Add reference geometry to its copied parts or assembly; source CAD is unchanged. Recalibrate before building. Details: "+result.ReceiptPath;
                 var incomplete=result.Project.Components.Where(c=>CoiloverAppearance.Active(c)&&AssociationAssembly.AssignedCoiloverMembers(c)==null).Select(c=>c.Name).ToArray();
@@ -692,6 +728,7 @@ namespace BeamNG.Cad.UI
         {
             settings.SelectProject(result.Project);settings.LastBuildReceipt=result.Project.LastBuildReceipt??"";settings.Save();
             if(ComponentAssignments.SameDocument(model.GetPathName(),result.Document.GetPathName())){project=result.Project;RefreshLists();status.Text=message;return;}
+            if(ContextChanged!=null){ContextChanged(result.Project,result.Document);return;}
             var window=new ComponentWorkflow(app,result.Document,settings);window.status.Text=message;window.Show();closing=true;
         }
         private Task OpenCompanion()
@@ -760,7 +797,7 @@ namespace BeamNG.Cad.UI
         private void SwitchProject(VehicleProject value)
         {
             foreach(var preview in previews.Values)preview.Dispose();previews.Clear();project=value;
-            settings.SelectProject(project);settings.LastBuildReceipt=project.LastBuildReceipt;settings.Save();
+            settings.SelectProject(project);settings.LastBuildReceipt=project.LastBuildReceipt;settings.Save();ProjectChanged?.Invoke();
             foreach(var set in mvpCatalog.TemplateSets)templateChoices[set.Id].SelectedItem=mvpCatalog.Selected(project,set);
             RefreshLists();RefreshRoles(Selected);
         }
@@ -899,15 +936,15 @@ namespace BeamNG.Cad.UI
         private void Run(Func<Task> action)=>Run(action,true);
         private async void Run(Func<Task> action,bool requireActiveDocument)
         {
-            if(cancel!=null)return;cancel=new CancellationTokenSource();batchDetail="";status.ForeColor=System.Drawing.SystemColors.ControlText;editor.Enabled=false;stop.Visible=true;progress.Visible=true;progress.Style=ProgressBarStyle.Marquee;
+            if(cancel!=null||!ResolveDraft())return;cancel=new CancellationTokenSource();batchDetail="";status.ForeColor=System.Drawing.SystemColors.ControlText;editor.Enabled=false;stop.Visible=true;progress.Visible=true;progress.Style=ProgressBarStyle.Marquee;
             var previous=SynchronizationContext.Current;
             // SolidWorks owns the message loop. Establish the WinForms context
             // explicitly so CAD calls and control updates stay on this UI thread.
             if(!(previous is WindowsFormsSynchronizationContext))SynchronizationContext.SetSynchronizationContext(new WindowsFormsSynchronizationContext());
             try{if(requireActiveDocument)selection.ValidateDocument();settings=settings.Reload();await action();}
             catch(OperationCanceledException){status.Text="Cancelled. Completed evidence retained.";}
-            catch(Exception e){status.ForeColor=System.Drawing.Color.DarkRed;status.Text="Failed: "+e.Message;log.AppendText(e+Environment.NewLine);project=VehicleProject.Load(project.FilePath);RefreshLists();}
-            finally{cancel.Dispose();cancel=null;progress.Visible=false;stop.Visible=false;editor.Enabled=true;if(closing)Close();SynchronizationContext.SetSynchronizationContext(previous);}
+            catch(Exception e){status.ForeColor=System.Drawing.Color.DarkRed;status.Text="Failed: "+e.Message;log.AppendText(e+Environment.NewLine);if(!HasPendingChanges){project=VehicleProject.Load(project.FilePath);RefreshLists();}}
+            finally{cancel.Dispose();cancel=null;progress.Visible=false;stop.Visible=false;editor.Enabled=true;ProjectChanged?.Invoke();if(closing)Close();SynchronizationContext.SetSynchronizationContext(previous);}
         }
     }
 }

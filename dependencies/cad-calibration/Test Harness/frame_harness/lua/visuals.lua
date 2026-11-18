@@ -11,6 +11,16 @@ function M.new(job,vehicle,kind)
   local cameraCenter,cameraDistance,previousVehiclePosition
   local maximumCameraCenterError=0
   local cameraSet=false
+  local function steeringProp()
+    for owner,binding in pairs(job.manifest and job.manifest.rigid_render or {}) do
+      if binding.steering then
+        local name=binding.steering.meshes[1]
+        for _,body in pairs(graph and graph.props or {}) do
+          if (body.originalMesh or body.mesh)==name then return vehicle:getProp(body.pid),binding,owner end
+        end
+      end
+    end
+  end
   local function bounds()
     local lo=vec3(math.huge,math.huge,math.huge);local hi=-lo;local origin=vehicle:getPosition()
     for i=0,vehicle:getNodeCount()-1 do
@@ -24,6 +34,14 @@ function M.new(job,vehicle,kind)
     local center,radius=bounds()
     local forward=vehicle:getDirectionVector();local right=forward:cross(vec3(0,0,1)):normalized()
     local offset=view=='front' and forward or (view=='side' and right or (right-forward+vec3(0,0,.8)):normalized())
+    if view=='steering' then
+      local prop,binding=steeringProp();assert(prop,'Steering diagnostic has no native prop')
+      local matrix=prop:getLiveTransformWorld()
+      -- Like the native prop editor, add the vehicle translation: the API's
+      -- "World" matrix rotates globally but its position is vehicle-relative.
+      center=matrix:getColumn(3)+vehicle:getPosition();radius=math.max(binding.steering.Radius,.08)
+      offset=(matrix:getColumn(2)+vec3(0,0,.12)):normalized()
+    end
     if view:sub(1,9)=='coilover:' then
       local owner=view:sub(10);local binding=job.manifest.coilover_render[owner]
       local vehicleCenter=center
@@ -103,6 +121,7 @@ function M.new(job,vehicle,kind)
     if self.seen[label] then return end
     self.seen[label]=true;if label=='final' then self.final=true end
     local views=kind=='frame' and {'front','side','oblique'} or {'oblique'}
+    if label:sub(1,9)=='steering-' then views={'steering'} end
     local coil=label:match('^coilover%-(.+)%-%-[^-]+$')
     if coil then views={'coilover:'..coil} end
     for _,view in ipairs(views) do
@@ -192,6 +211,27 @@ function M.new(job,vehicle,kind)
       local a=self.active
       if a.retryAt and a.elapsed<a.retryAt then return end
       if a.request.label=='final' and not a.attempts then auditMeshes() end
+      if a.request.view=='steering' and not a.attempts then
+        local record=jsonReadFile(job.output..'/'..a.request.label..'-input.json')
+        assert(record and record.job_id==job.id and record.session_id==job.session_id,'Steering capture input identity differs')
+        record.props={}
+        local function xyz(p) return {p.x,p.y,p.z} end
+        local named={};for _,n in pairs(graph.nodes) do if n.name then named[n.name]=n.cid end end
+        for _,binding in pairs(job.manifest.rigid_render or {}) do
+          if binding.steering then
+            for _,name in ipairs(binding.steering.meshes) do
+              for _,body in pairs(graph.props or {}) do
+                if (body.originalMesh or body.mesh)==name then
+                  local prop=vehicle:getProp(body.pid);local matrix=prop:getLiveTransformWorld();local refs={}
+                  for _,n in ipairs(binding.nodes) do refs[n]=xyz(vehicle:getNodePosition(named[n])+vehicle:getPosition()) end
+                  record.props[name]={columns={xyz(matrix:getColumn(0)),xyz(matrix:getColumn(1)),xyz(matrix:getColumn(2)),xyz(matrix:getColumn(3)+vehicle:getPosition())},reference_nodes=refs,coordinate_space='world'}
+                end
+              end
+            end
+          end
+        end
+        jsonWriteFile(job.output..'/'..a.request.label..'.json',record,true)
+      end
       local ok,result=pcall(function() return a.render:saveToDisk(a.filename) end)
       local success=ok and result and FS:fileExists(a.filename)
       local quality=success and readbackQuality(a.filename) or nil

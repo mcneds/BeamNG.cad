@@ -42,13 +42,14 @@ namespace BeamNG.Cad.Preparation
         [DataMember] public List<MountConnection> Connections=new List<MountConnection>();
         [DataMember] public List<MvpTemplateChoice> MvpTemplates=new List<MvpTemplateChoice>();
         [DataMember] public JointWorkspace JointWorkspace=new JointWorkspace();
+        [DataMember(EmitDefaultValue=false)] public Driveline Driveline;
         public string FilePath {get;private set;}
         public string ProfilePath=>FilePath+".profile.json";
         public static string PathFor(string document)=>document+".beamng-project.json";
         public static VehicleProject Load(string path)
         {
             var project=JsonFile.Read<VehicleProject>(path);
-            if(project.Version!=2 && project.Version!=3)throw new InvalidDataException("Unsupported vehicle project.");
+            if(project.Version!=2 && project.Version!=3 && project.Version!=4)throw new InvalidDataException("Unsupported vehicle project.");
             project.Identity.Validate();project.FilePath=Path.GetFullPath(path);
             project.Components=project.Components??new List<ComponentDefinition>();
             project.Anchors=project.Anchors??new List<MountAnchor>();
@@ -56,6 +57,7 @@ namespace BeamNG.Cad.Preparation
             project.MvpTemplates=project.MvpTemplates??new List<MvpTemplateChoice>();
             project.JointWorkspace=project.JointWorkspace??new JointWorkspace();
             project.JointWorkspace.Normalize();
+            project.Driveline?.Normalize();
             foreach(var component in project.Components)
             {
                 // Older projects inferred visual-only from excluded sheet mass.
@@ -64,6 +66,16 @@ namespace BeamNG.Cad.Preparation
                 component.MassPolicy=component.MassPolicy??"cad";
             }
             return project;
+        }
+        public static VehicleProject CreateFresh(string document,string path,MvpCatalog catalog,string authoringMode)
+        {
+            if(string.IsNullOrWhiteSpace(document)||!File.Exists(document))throw new InvalidOperationException("Save the source assembly first.");
+            path=Path.GetFullPath(path);
+            if(File.Exists(path)||File.Exists(path+".profile.json"))throw new IOException("Choose a new project filename. Existing work is preserved.");
+            var label=Path.GetFileNameWithoutExtension(document);
+            var fresh=new VehicleProject {FilePath=path,SourceDocument=Path.GetFullPath(document),Identity=ProjectIdentity.Create(label)};
+            fresh.JointWorkspace.Mode=authoringMode=="authored"?"authored":"legacy";
+            catalog.AddMissingGroups(fresh);fresh.Save();new ModProfile {Name=label,Brand="",Author="",Description="Generated from CAD.",Configuration="CAD vehicle",PreviewImage=""}.Save(fresh.ProfilePath);return fresh;
         }
         public static VehicleProject Open(string document)
         {
@@ -93,7 +105,12 @@ namespace BeamNG.Cad.Preparation
             // Back up the on-disk version, even after an in-memory clone/migration.
             if(File.Exists(FilePath) && JsonFile.Read<VehicleProject>(FilePath).Version==2 && !File.Exists(FilePath+".v2.bak"))
                 File.Copy(FilePath,FilePath+".v2.bak");
-            Version=3;JointWorkspace=JointWorkspace??new JointWorkspace();JointWorkspace.Normalize();JsonFile.Write(FilePath,this);
+            if(Driveline!=null&&File.Exists(FilePath))
+            {
+                var oldVersion=JsonFile.Read<VehicleProject>(FilePath).Version;
+                if(oldVersion<4&&!File.Exists(FilePath+".v"+oldVersion+".bak"))File.Copy(FilePath,FilePath+".v"+oldVersion+".bak");
+            }
+            Version=Driveline==null?Math.Max(3,Version):4;Driveline?.Normalize();JointWorkspace=JointWorkspace??new JointWorkspace();JointWorkspace.Normalize();JsonFile.Write(FilePath,this);
         }
         public void SelectBuild(string receipt)
         {
@@ -146,6 +163,7 @@ namespace BeamNG.Cad.Preparation
         [DataMember(EmitDefaultValue=false)] public string AppearancePackageError;
         [DataMember] public double[] AppearanceTransform;
         [DataMember(EmitDefaultValue=false)] public CoiloverAppearance AppearanceCoilover;
+        [DataMember(EmitDefaultValue=false)] public SteeringAppearance SteeringAppearance;
         [DataMember(EmitDefaultValue=false)] public CoiloverSpring CoiloverSpring;
         [DataMember] public HullOptions Hull=new HullOptions();
         [DataMember] public double Spacing=0;
@@ -158,6 +176,13 @@ namespace BeamNG.Cad.Preparation
         [DataMember] public string Method="auto";
         [DataMember] public double Alpha=0;
         [DataMember] public double WrapOffset=0;
+    }
+    [DataContract] internal sealed class SteeringAppearance
+    {
+        [DataMember] public bool Enabled;
+        [DataMember] public double[] Pivot,Axis,Up;
+        [DataMember] public string SourceHash,FitMethod;
+        [DataMember] public double Radius,FitResidual;
     }
     [DataContract] internal sealed class MountAnchor
     {

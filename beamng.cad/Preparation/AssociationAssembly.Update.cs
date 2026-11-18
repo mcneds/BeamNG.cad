@@ -172,7 +172,8 @@ namespace BeamNG.Cad.Preparation
             var removed=RemovedSourceIds(old,sourceIds);
             var metadata=old.SourceComponents==null||input.Components.Any(c=>CompanionAssemblyLink.State(c)!=CompanionAssemblyLink.State(before.TryGetValue(c.Id,out var prior)?prior:null))||
                 !input.Components.Select(c=>c.Id).SequenceEqual((old.SourceComponents??new List<ComponentDefinition>()).Select(c=>c.Id))||
-                CompanionAssemblyLink.Serialized(input.MvpTemplates,typeof(List<MvpTemplateChoice>))!=CompanionAssemblyLink.Serialized(old.SourceTemplates,typeof(List<MvpTemplateChoice>));
+                CompanionAssemblyLink.Serialized(input.MvpTemplates,typeof(List<MvpTemplateChoice>))!=CompanionAssemblyLink.Serialized(old.SourceTemplates,typeof(List<MvpTemplateChoice>))||
+                CompanionAssemblyLink.Serialized(input.Driveline,typeof(Driveline))!=CompanionAssemblyLink.Serialized(old.SourceDriveline,typeof(Driveline));
             if(!metadata&&!plan.Any(p=>p.Rebind)&&removed.Count==0)
             {
                 Activate(assembly);CompanionAssemblyLink.Register(receiptPath);progress?.Invoke(100,"Companion is already up to date");
@@ -182,7 +183,7 @@ namespace BeamNG.Cad.Preparation
             Directory.CreateDirectory(revision);
             var assemblyPath=Path.Combine(revision,"Companion_"+Guid.NewGuid().ToString("N").Substring(0,8)+".SLDASM");
             var receipt=new Receipt {SourceProject=input.FilePath,SourceDocument=input.SourceDocument,Configuration=selector.Configuration,Assembly=assemblyPath,Project=VehicleProject.PathFor(assemblyPath),PreviousAssembly=old.Assembly,
-                SourceComponents=VehicleProject.Load(input.FilePath).Components,SourceTemplates=input.MvpTemplates};
+                SourceComponents=VehicleProject.Load(input.FilePath).Components,SourceTemplates=input.MvpTemplates,SourceDriveline=input.Driveline?.Copy()};
             receipt.Notes.Add("Assignment update revision. Unchanged part files and their reference work are retained. Previous assembly: "+old.Assembly);
             if(retained.Count>0)receipt.Notes.Add(retained.Count+" reviewed replacement groups retained, including during full geometry refresh. Edit these groups in the companion; the original source no longer owns them.");
             if(!refreshGeometry)receipt.Notes.Add("Changes inside the same assigned bodies are copied only with Refresh assigned geometry too.");
@@ -197,7 +198,7 @@ namespace BeamNG.Cad.Preparation
                 {
                     Activate(source);
                     var export=input.Fork(Path.Combine(revision,"export-input.beamng-project.json"));
-                    export.Components=ReplacementComponents(replacements,selector);export.Anchors.Clear();export.Connections.Clear();export.JointWorkspace=new JointWorkspace();export.TemplateDefinitionPath="";export.Save();
+                    export.Components=ReplacementComponents(replacements,selector);export.Anchors.Clear();export.Connections.Clear();export.JointWorkspace=new JointWorkspace();export.Driveline=null;export.TemplateDefinitionPath="";export.Save();
                     var result=await Create(export,Path.Combine(revision,"parts"),(p,message)=>progress?.Invoke(15+p*55/100,message),token);
                     generated=CompanionAssemblyLink.Read(result.ReceiptPath);app.CloseDoc(result.Document.GetTitle());
                 }
@@ -297,6 +298,8 @@ namespace BeamNG.Cad.Preparation
                     output.JointWorkspace.Invalidate(changed.Concat(removed),"Companion geometry changed; rescan and repair affected joints");
                     if(output.Anchors.Any(a=>a.Status!="resolved"))receipt.Notes.Add("Some mounting references need repair. Unchanged valid references remain associated.");
                     if(old.SourceTemplates==null||CompanionAssemblyLink.Serialized(input.MvpTemplates,typeof(List<MvpTemplateChoice>))!=CompanionAssemblyLink.Serialized(old.SourceTemplates,typeof(List<MvpTemplateChoice>)))output.MvpTemplates=input.MvpTemplates;
+                    if(CompanionAssemblyLink.Serialized(input.Driveline,typeof(Driveline))!=CompanionAssemblyLink.Serialized(old.SourceDriveline,typeof(Driveline)))
+                        receipt.Notes.Add("Source driveline changed. The companion's graph and its CAD bindings were retained; review the source changes explicitly in Driveline.");
                     output.LastBuildReceipt="";output.FrameBuildReceipt="";output.PhysicsBuildReceipt="";output.PhysicsTemplateReceipt="";
                     // Preserve locally reviewed hardpoints independently of the previous revision.
                     if(File.Exists(output.TemplateDefinitionPath)){var copied=Path.Combine(revision,"template-definition.json");File.Copy(output.TemplateDefinitionPath,copied);output.TemplateDefinitionPath=copied;}

@@ -339,6 +339,8 @@ def component_masses(points,mass,center,inertia):
 
 
 def generate_component(component,anchors,folder,cgal=None):
+    if (component.get('SteeringAppearance') or {}).get('Enabled') and component.get('Method')!='rigid':
+        raise ValueError('Steering animation preview requires the rigid representation')
     folder.mkdir(parents=True,exist_ok=False)
     meshes,moments,geometry=read_geometry(component);triangles=np.concatenate([t for _,t in meshes])
     settings=suggest(triangles,moments[0]);spacing=component.get('Spacing') or settings['spacing_m']
@@ -358,6 +360,17 @@ def generate_component(component,anchors,folder,cgal=None):
         report=dict(settings=settings,mass={'actual_mass_kg':moments[0],'accepted':True},mass_contributions=contributions,nodes=0,beams=0,collision_triangles=0,
                     visual_parent=parent,qualification='visual_only',limitations=['Skin follows its physical parent; no independent nodes, collision or breakaway. Any included mass belongs to that parent.'])
         write(folder/'report.json',report);write(folder/'component.jbeam',{component['Id']:part});return part,report
+    if component.get('Method')=='rigid':
+        from compact_rigid import generate
+        from rigid_visuals import render
+        part,report=generate(component,anchors,moments)
+        allocation={row[0]:row[-1]['nodeWeight'] for row in part['nodes'][1:]}
+        render_meshes,report['rigid_render']=render(component['Id'],part,{component['Id']:allocation},meshes,[r['Id'] for r,_ in meshes],component.get('SteeringAppearance'))
+        write_dae(folder/'component.dae',render_meshes)
+        write_off(folder/'preview.off',[r[1:4] for r in part['nodes'][1:]],[])
+        report['mass_contributions']=contributions
+        write(folder/'report.json',report);write(folder/'component.jbeam',{component['Id']:part})
+        return part,report
     for value in (spacing,component.get('Alpha',0),component.get('WrapOffset',0)):
         if not math.isfinite(value) or value<0:raise ValueError('Geometry parameters must be finite and nonnegative')
     template=settings['classification'] if component['Template']=='auto' else component['Template']

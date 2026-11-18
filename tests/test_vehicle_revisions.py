@@ -62,6 +62,29 @@ class RevisionTests(unittest.TestCase):
         (receipt.parent/'diagnostics-pruned.json').write_text('{}')
         with self.assertRaisesRegex(ValueError,'pruned to recover disk space'):
             r.load_baseline(receipt)
+    def test_steering_revision_preserves_physics_and_persists_setting(self):
+        from test_steering_visuals import rim
+        from steering_visuals import fit
+        comp=self.project['Components'][0];comp['RigidAppearance']=True
+        _,manifest,assets,_=r.load_baseline(self.project['LastBuildReceipt'])
+        manifest.update(mass_allocations={'engine':{'0':1.,'1':1.,'2':1.}},component_meshes={'engine':['old']})
+        r.package_revision(self.root/'rigid',self.project,manifest,assets,{},self.project['LastBuildReceipt'],'Fixture')
+        self.project['LastBuildReceipt']=str(self.root/'rigid/static_frame_build.json')
+        before=r.load_baseline(self.project['LastBuildReceipt'])[3]
+        # Use the public CAD capture path, including its coordinate conversion.
+        write_stl(self.root/'cad/sheet.stl',rim()[0][1])
+        comp['SteeringAppearance']=fit(r.appearance_meshes(comp)[0])
+        r.replace_appearance(self.project,['engine'],self.root/'animated')
+        _,manifest,assets,after=r.load_baseline(self.root/'animated/static_frame_build.json')
+        self.assertEqual(before,after)
+        saved=json.loads((self.root/'animated/project.snapshot.json').read_text())
+        self.assertEqual(saved['Components'][0]['SteeringAppearance'],comp['SteeringAppearance'])
+        self.assertEqual(manifest['rigid_render']['engine']['steering']['electric'],'steering')
+    def test_steering_animation_is_not_silently_ignored_on_a_flexbody(self):
+        self.project['Components'][0]['SteeringAppearance']={'Enabled':True}
+        with self.assertRaisesRegex(ValueError,'rigid accessory'):
+            r.replace_appearance(self.project,['engine'],self.root/'invalid-steering')
+        self.assertFalse((self.root/'invalid-steering/static_frame_build.json').exists())
     def test_low_disk_space_rejects_before_creating_partial_revision(self):
         from types import SimpleNamespace
         target=self.root/'missing-parent'/'revision'
@@ -140,6 +163,30 @@ class RevisionTests(unittest.TestCase):
         project=copy.deepcopy(self.project);project['Identity']={'id':'b'*32,'namespace':'fork_bbbbbbbb'}
         r.fork_baseline(project,self.project['LastBuildReceipt'],self.root/'chain-fork')
         self.assertEqual(r.load_baseline(self.root/'chain-fork/static_frame_build.json')[1]['shaft_chains'],chain)
+    def test_driveline_contract_is_sealed_across_appearance_and_namespace_forks(self):
+        _,manifest,contents,_=r.load_baseline(self.project['LastBuildReceipt'])
+        drive=dict(sections=[dict(id='section',component='engine',member=None,endpoints=['0','1'],nodes=['0','1','2','3'],rest_length_m=1.)],joints=[],rails=[])
+        manifest['driveline_physics']=drive
+        manifest['device_contract']=dict(version=2,template='driveline_graph',graph=dict(version=1,devices=[],endpoints=[],shafts=[],connections=[]))
+        r.package_revision(self.root/'drive',self.project,manifest,contents,{},self.project['LastBuildReceipt'],'Synthetic sealing fixture')
+        self.project['LastBuildReceipt']=str(self.root/'drive/static_frame_build.json')
+        before=r.load_baseline(self.project['LastBuildReceipt'])[3]
+        r.replace_appearance(self.project,['engine'],self.root/'drive-render')
+        _,after,_,snapshot=r.load_baseline(self.root/'drive-render/static_frame_build.json')
+        self.assertEqual(before,snapshot);self.assertEqual(after['driveline_physics'],drive)
+        fork=copy.deepcopy(self.project);fork['Identity']={'id':'b'*32,'namespace':'fork_bbbbbbbb'}
+        r.fork_baseline(fork,self.project['LastBuildReceipt'],self.root/'drive-fork')
+        self.assertEqual(r.load_baseline(self.root/'drive-fork/static_frame_build.json')[1]['driveline_physics'],drive)
+        altered=copy.deepcopy(manifest);altered['driveline_physics']['sections'][0]['rest_length_m']=2.
+        self.assertNotEqual(r.physical_snapshot(contents,altered)['sha256'],before['sha256'])
+
+    def test_combined_visual_cannot_replace_independent_shaft_members(self):
+        _,manifest,contents,_=r.load_baseline(self.project['LastBuildReceipt'])
+        manifest['driveline_physics']=dict(sections=[dict(component='engine',member='moving_shaft')])
+        r.package_revision(self.root/'members',self.project,manifest,contents,{},self.project['LastBuildReceipt'],'Synthetic moving-member fixture')
+        self.project['LastBuildReceipt']=str(self.root/'members/static_frame_build.json')
+        with self.assertRaisesRegex(ValueError,'independently moving'):r.replace_appearance(self.project,['engine'],self.root/'combined-members')
+
     def test_unknown_owner_rejected_without_baseline_mutation(self):
         path=Path(self.project['LastBuildReceipt']);before=path.read_bytes()
         with self.assertRaisesRegex(ValueError,'stable physical'):r.replace_appearance(self.project,['missing'],self.root/'bad')

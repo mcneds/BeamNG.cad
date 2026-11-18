@@ -38,9 +38,26 @@ Inspect resting wheel orientation, articulation, mesh loading, joint motion and 
 
 ## Full driving acceptance
 
-Use **Build / test → Verify package**. It runs settle, supported drivetrain, articulation, acceleration, braking, reverse, left turn and right turn three times.
+Use **Verify → Verify package**. It runs settle, supported drivetrain, articulation, acceleration, braking, reverse, left turn and right turn three times.
 
 The recorder checks complete finite telemetry, compiled mass and devices, motion errors and damage. Straight tests also measure uncommanded drift/yaw. Failed repeats withdraw driving qualification; a passed pilot cannot restore it.
+
+## Steering-wheel appearance diagnostic
+
+For a package with a saved steering animation, run
+`tools/test-steering-animation.py <manifest> --game <game-directory> --profile <owned-profile>`.
+This separate diagnostic sweeps steering while stopped, then at low and moderate
+speed. It records close views and compares native prop transforms with the
+recorded steering angle and saved CAD visual pivot. It does not add scenarios to
+full vehicle acceptance or qualify a real steering-column ratio. Missing poses,
+insufficient driving speed, unreadable captures or incorrect rotation fail the
+diagnostic; ordinary vehicle checks remain separate in its result.
+
+## Low-speed bouncing
+
+Compare stationary neutral, idle creep, controlled speed and throttle-release coasting. Use `tools/probe-drive-execution.py` with an owned profile and a fresh output directory. Its `--target-speed` is in **metres per second**: 5 mph is 2.2352 m/s. `--scenario steady_speed --deterministic --frequency-window 38 4 --frequency-wheels` records a bounded physics-rate window; `--frequency-corners FL FR RL RR` includes all four suspension corners. `--coast-after 30` releases both pedals while retaining the drivetrain gear, so that recording is not a neutral coast or a controlled speed hold.
+
+`tools/analyze-low-speed.py <run> --output <summary.json>` registers hub motion to the chassis and reports amplitudes, spectra and wheel rotation orders. Ordinary motion snapshots cannot reliably resolve fast vibration. A spectrum or correlation alone does not identify its cause: compare isolated revisions, reject incomplete telemetry, and retain the exact source hashes. Headless fixtures that omit appearance require a separate rendered check before installation. These diagnostics do not replace driving acceptance or qualify the tire material model.
 
 ## Read evidence and recover
 
@@ -53,4 +70,3 @@ The recorder checks complete finite telemetry, compiled mass and devices, motion
 Passing runs may compact raw CSV and optional reports. Enable **Save full build report** before recording if later raw analysis is needed. Compaction preserves measured results and provenance, but cannot recreate discarded samples.
 
 Continue with [Package and install](/guides/install-package/) once the relevant status and limitations have been reviewed.
-

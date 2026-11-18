@@ -5,7 +5,7 @@ sidebar:
   order: 4
 ---
 
-Open **beamng.cad → Settings** before your first generation. Automatically discovered paths are conveniences; verify them on your machine.
+Open **beamng.cad → Settings** before your first generation. Automatically discovered paths are conveniences; verify them on your machine. Edits remain pending until **Apply settings**. **Discard changes** restores the last applied values. Leaving Settings offers Apply/Discard/Cancel; typing, waiting and closing do not silently save paths. Changed fields are validated before saving; unrelated optional tools may remain unset.
 
 | Setting | What to select |
 | --- | --- |

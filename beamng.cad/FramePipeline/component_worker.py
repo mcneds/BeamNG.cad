@@ -52,14 +52,16 @@ def preview(project_path,component_id,output,cgal=None):
     return part,report
 
 
-def validate_project(project):
+def validate_project(project,driveline=None):
     from component_representation import validate
     validate(project,c.read_geometry)
     validate_identity(project['Identity']);seen=set();ids=set()
     from mvp_inventory import configuration
-    _,active_roles,_=configuration(read(HERE/'template_catalog.json'),project)
+    driveline=project.get('Driveline') or driveline
+    _,active_roles,_=configuration(read(HERE/'template_catalog.json'),project|dict(Driveline=driveline))
+    drive_owners={e['component'] for table in ('endpoints','shafts','devices') for e in (driveline or {}).get(table,[])}
     for component in project['Components']:
-        if component.get('MvpRole') and component['MvpRole'] not in active_roles:raise ValueError(component['Name']+': tagged outside the current vehicle setup. Change the setup or revise this assignment before packaging.')
+        if component.get('MvpRole') and component['MvpRole'] not in active_roles and component['Id'] not in drive_owners:raise ValueError(component['Name']+': tagged outside the current vehicle setup. Change the setup or revise this assignment before packaging.')
         if component['Id'] in ids:raise ValueError('Duplicate component identity')
         ids.add(component['Id'])
         bodies=set(component['BodyIds'])
@@ -99,6 +101,7 @@ def verify_current_frame(component,record):
 
 def build(project_path,output,cgal=None):
     project=read(project_path);validate_project(project);output=Path(output).resolve()
+    if project.get('Driveline'):raise ValueError('Use vehicle generation for a driveline graph; a component-only package cannot preserve its torque topology')
     if output.exists():raise FileExistsError('Use a fresh component build directory')
     frame=next((v for v in project['Components'] if v['Template']=='calibrated_frame'),None)
     if frame is None:raise ValueError('Add the calibrated frame before packaging components')
@@ -159,6 +162,8 @@ def build(project_path,output,cgal=None):
         mapping.update({n:model+'__'+n for n in node_table(part)})
         for row in part.get('flexbodies',[])[1:]:
             if isinstance(row,list):mapping[row[0]]=model+'__'+row[0]
+        for row in part.get('props',[])[1:]:
+            if isinstance(row,list):mapping[row[1]]=model+'__'+row[1]
     for group in groups:
         if group['group']:mapping[group['group']]=model+'__'+group['group']
     main['slots']=[['type','default','description']]+[[model+'__'+v['Id'],model+'__'+v['Id'],v['Name']] for v in project['Components'] if v['Id']!=frame['Id']]
@@ -228,7 +233,7 @@ def build(project_path,output,cgal=None):
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('action',choices=['preview','build','suggest','verify','inventory','appearance','vehicle','mount-plan','fork-template','properties','joint-scan','joint-definition','auto-connect','acknowledge-mass','frame-current'])
+    parser=argparse.ArgumentParser();parser.add_argument('action',choices=['preview','build','suggest','verify','inventory','appearance','vehicle','mount-plan','fork-template','properties','joint-scan','joint-definition','auto-connect','acknowledge-mass','frame-current','driveline-check','driveline-preset'])
     parser.add_argument('--corner-inset',type=float,default=.01);parser.add_argument('--support-distance',type=float,default=.05)
     parser.add_argument('--project',type=Path);parser.add_argument('--component');parser.add_argument('--output',type=Path);parser.add_argument('--cgal')
     parser.add_argument('--source-project',type=Path)
@@ -307,6 +312,15 @@ def main():
     elif args.action=='joint-scan':
         from joint_authoring import proposals
         c.write(args.output,proposals(read(args.project).get('JointWorkspace') or {}))
+    elif args.action=='driveline-preset':
+        from driveline_presets import from_project
+        c.write(args.output,from_project(read(args.project)))
+    elif args.action=='driveline-check':
+        from driveline import resolve,validate
+        project=read(args.project);spec=resolve(project)
+        if not spec:raise ValueError('Create a driveline graph first')
+        result=validate(spec,project)
+        c.write(args.output,dict(status='passed',device_count=len(result['devices']),shaft_count=len(result['shafts']),routes=result['routes']))
     elif args.action=='joint-definition':
         from joint_authoring import definition
         c.write(args.output,definition(read(args.project)))

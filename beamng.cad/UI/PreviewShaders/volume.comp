@@ -1,0 +1,71 @@
+#version 430 core
+layout(local_size_x=64) in;
+layout(std430,binding=0) readonly buffer Source { vec4 points[]; };
+layout(std430,binding=1) readonly buffer InputCells { uint inputCells[]; };
+layout(std430,binding=2) buffer OutputCells { uint outputCells[]; };
+layout(std430,binding=3) buffer Faces { uint faces[]; };
+layout(std430,binding=4) buffer Draw { uint vertexCount; uint instanceCount; uint firstVertex; uint baseInstance; };
+uniform int mode, n, startTriangle, triangleCount, axis, radius, erode, symmetry, flip;
+uniform vec3 low;
+uniform float cell;
+uint indexOf(ivec3 p) { return uint(p.x+n*(p.y+n*p.z)); }
+ivec3 positionOf(uint i) { return ivec3(i%uint(n),(i/uint(n))%uint(n),i/uint(n*n)); }
+bool inside(ivec3 p) { return all(greaterThanEqual(p,ivec3(0)))&&all(lessThan(p,ivec3(n))); }
+uint readCell(ivec3 p) { return inside(p)?inputCells[indexOf(p)]:0u; }
+// Conservative triangle/box separating-axis test. Degenerate axes cannot
+// separate. Display triangles seed surface occupancy; no physical inference.
+bool separated(vec3 a,vec3 b,vec3 c,vec3 direction,float halfCell) {
+    float r=halfCell*dot(abs(direction),vec3(1));
+    vec3 d=vec3(dot(a,direction),dot(b,direction),dot(c,direction));
+    return min(d.x,min(d.y,d.z))>r||max(d.x,max(d.y,d.z)) < -r;
+}
+bool intersects(vec3 a,vec3 b,vec3 c,vec3 center) {
+    a-=center;b-=center;c-=center;
+    float h=cell*.5001;
+    if(separated(a,b,c,cross(b-a,c-a),h))return false;
+    vec3 edges[3]=vec3[3](b-a,c-b,a-c);
+    for(int e=0;e<3;e++)for(int k=0;k<3;k++) {
+        vec3 unit=vec3(0);unit[k]=1;
+        if(separated(a,b,c,cross(edges[e],unit),h))return false;
+    }
+    return true; // the axis-aligned box tests are supplied by the voxel range
+}
+void main() {
+    uint id=gl_GlobalInvocationID.x;
+    if(mode==0) {
+        if(id>=uint(triangleCount))return;
+        uint t=(id+uint(startTriangle))*3u;
+        vec3 a=points[t].xyz,b=points[t+1u].xyz,c=points[t+2u].xyz;
+        ivec3 first=clamp(ivec3(floor((min(a,min(b,c))-low)/cell)),ivec3(0),ivec3(n-1));
+        ivec3 last=clamp(ivec3(floor((max(a,max(b,c))-low)/cell)),ivec3(0),ivec3(n-1));
+        for(int z=first.z;z<=last.z;z++)for(int y=first.y;y<=last.y;y++)for(int x=first.x;x<=last.x;x++) {
+            ivec3 p=ivec3(x,y,z);
+            if(intersects(a,b,c,low+(vec3(p)+.5)*cell))atomicOr(outputCells[indexOf(p)],1u);
+        }
+        return;
+    }
+    if(id>=uint(n*n*n))return;
+    ivec3 p=positionOf(id);
+    if(mode==1) { // independent preview symmetry, explicitly approximate
+        // Blender's default X bisect keeps +X; flip keeps -X.
+        if(symmetry!=0&&((flip==0&&p.x<n/2)||(flip!=0&&p.x>=n/2)))p.x=n-1-p.x;
+        outputCells[id]=readCell(p);return;
+    }
+    if(mode==2) { // separable box morphology: GPU approximation to gap closing
+        uint value=erode!=0?1u:0u;
+        for(int i=-radius;i<=radius;i++) {
+            ivec3 q=p;q[axis]+=i;uint sampleValue=readCell(q);
+            value=erode!=0?min(value,sampleValue):max(value,sampleValue);
+        }
+        outputCells[id]=value;return;
+    }
+    if(mode==3) { // compact boundary faces and generate the indirect draw on GPU
+        if(inputCells[id]==0u)return;
+        for(int face=0;face<6;face++) {
+            ivec3 q=p;q[face/2]+=(face%2==0?-1:1);
+            if(readCell(q)!=0u)continue;
+            uint at=atomicAdd(vertexCount,6u)/6u;
+            faces[at]=id*6u+uint(face);
+        }
+    }
+}
