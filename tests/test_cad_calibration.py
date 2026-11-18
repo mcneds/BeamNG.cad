@@ -1,9 +1,7 @@
 import copy
-import hashlib
 import importlib.util
 import json
 from pathlib import Path
-import shutil
 import sys
 import tempfile
 import unittest
@@ -18,10 +16,10 @@ try:
 except ImportError:
     raise unittest.SkipTest('Use the calibration interpreter for CAD integration tests')
 import calibration_worker as worker
-from frame_harness.build import sha256, write_json, node_table, build_candidate, SOURCES
+from frame_harness.build import sha256, write_json, node_table, build_candidate
 from frame_harness.calibration import graph_identity, fit_masses, mass_properties
 from frame_harness.generation import load_artifact, inputs, scenario
-from frame_harness.models import HarnessProject, ParameterSet, TestScenario
+from frame_harness.models import ParameterSet, TestScenario
 from prepare_frame import rotate
 from test_static_frame import fixture, pipeline
 
@@ -254,16 +252,26 @@ class GenerationTests(unittest.TestCase):
                 np.testing.assert_equal(rotate(axis(up),code),[0,0,1]);np.testing.assert_equal(rotate(axis(front),code),[0,-1,0])
         with self.assertRaises(ValueError):rotate((0,0,0),'+Y,-Y')
 
-    def test_archived_reference_only_matches_unchanged_inputs(self):
-        base=ROOT/'dependencies/cad-calibration';source=base/'Test Programs'
+    def test_archived_reference_keeps_recorded_vehicle(self):
+        base=ROOT/'dependencies/cad-calibration'
         artifact=base/'Test Harness/comparisons/4130-complete-20261004/4130-annealed/calibration.json'
-        spec,vehicle=load_artifact(HarnessProject(source=source),artifact)
+        # The archived vehicle is fingerprinted, but its retired generator sources are absent.
+        spec=worker.read(artifact)
+        vehicle=artifact.parent/spec['vehicle_file']
+        self.assertEqual(sha256(vehicle),spec['vehicle_sha256'])
         part=worker.read(vehicle)['mochi'];nodes=node_table(part)
         self.assertEqual(len(nodes),78);self.assertEqual(len(graph_identity(part)['beams']),435)
         self.assertAlmostEqual(sum(n['mass'] for n in nodes.values()),34.789158,places=5)
         self.assertFalse(any(n['options'].get('fixed') for n in nodes.values()))
-        changed=self.root/'changed';shutil.copytree(source,changed);(changed/'mochi_hull.off').write_text('new geometry')
-        with self.assertRaisesRegex(ValueError,'differs from this generation'):load_artifact(HarnessProject(source=changed),artifact)
+
+    def test_calibration_artifact_only_matches_unchanged_inputs(self):
+        job=self.make_generation()
+        artifact=self.make_artifact(job)
+        project=worker.project(job)
+        load_artifact(project,artifact)
+        (project.source/'cad_source.dae').write_text('new geometry')
+        with self.assertRaisesRegex(ValueError,'differs from this generation'):
+            load_artifact(project,artifact)
 
     def test_explicit_non_mochi_part_and_fixture_identity(self):
         job=self.make_generation();artifact=self.make_artifact(job)

@@ -34,6 +34,7 @@ def read_run(run):
             bands_rms_deg=spectrum['bands_rms'],frequency_hz=spectrum['frequency_hz'],density=spectrum['density'])
     files=['frequency_analysis.json','frequency_wheels.csv','frequency_wheels.json','job.json','probe.json']
     return dict(run=str(run),manifest_sha256=probe['manifest_sha256'],target_speed_m_s=job['steady_speed']['target_m_s'],
+                mode=probe['mode'],deterministic=probe['deterministic'],
                 samples=report['samples'],corners=corners,evidence_sha256={n:hashlib.sha256((run/n).read_bytes()).hexdigest() for n in files})
 
 
@@ -41,6 +42,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('runs',type=Path,nargs='+');p.add_argument('--output',type=Path,required=True);a=p.parse_args()
     runs=sorted([read_run(r) for r in a.runs],key=lambda r:r['target_speed_m_s'])
     if len({r['manifest_sha256'] for r in runs})!=1:raise ValueError('Comparison requires the same sealed build')
+    if len({(r['mode'],r['deterministic']) for r in runs})!=1:raise ValueError('Mismatched execution/control timing')
     if len({r['target_speed_m_s'] for r in runs})!=len(runs):raise ValueError('Duplicate speed; analyze repeats separately')
     result=dict(scope=__doc__,qualification_status='diagnostic_only',runs=runs,
                 analyzer_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest())
