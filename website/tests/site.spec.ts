@@ -15,7 +15,7 @@ test('landing page leads to a usable guide without horizontal overflow', async (
   expect(errors).toEqual([]);
 });
 
-test('production search finds and opens a coilover guide', async ({ page }) => {
+test('production search for coilover opens the Spring Setup guide', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Search', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Search', exact: true });
@@ -25,7 +25,7 @@ test('production search finds and opens a coilover guide', async ({ page }) => {
   await expect(result).toBeVisible({ timeout: 20000 });
   await result.click();
   await expect(page).toHaveURL(/\/guides\/coilovers\//);
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Coilovers and spring settings');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Spring setup');
 });
 
 test('sidebar, themes and direct nested routes work', async ({ page, isMobile }, testInfo) => {

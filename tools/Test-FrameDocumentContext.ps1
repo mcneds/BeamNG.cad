@@ -67,6 +67,43 @@ public static class FrameDocumentContextTest {
     next.PerformClick();
     var components=(ListBox)Find(workspace,"Components");
     Check((string)Prop(workspace,"CurrentStage")=="Components"&&(string)Get(components.SelectedItem,"Id")== (string)Get(frameGroup,"Id"),"next action selects the exact missing group");
+    var editor=Get(workspace,"components");
+    var editorProject=Prop(editor,"CurrentProject");
+    var springGroups=((IList)Get(editorProject,"Components")).Cast<object>()
+     .Where(c=>((string)Get(c,"MvpRole")??"").EndsWith("_spring_damper")).ToArray();
+    var lastSpring=springGroups.Last();
+    var springAction=(Button)Find(workspace,"OpenSpringSetup");
+    var springProgress=Find(workspace,"SpringCadProgress");
+    var componentDetails=(TabControl)Find(workspace,"ComponentDetails");
+    Check(!springProgress.Visible&&!springAction.Visible,"spring handoff does not add clutter to other CAD groups");
+    foreach(var group in springGroups){
+     Set(group,"CadSourceDocument",document);Set(group,"Configuration","Default");
+     ((IList)Get(group,"Selections")).Add(New(code,"Preparation.SelectionReference"));
+    }
+    Set(lastSpring,"Configuration","Other");
+    Call(editor,"RefreshLists");components.SelectedItem=lastSpring;Application.DoEvents();
+    Check(springProgress.Visible&&springProgress.Text.Contains("3 of 4")&&springProgress.Text.Contains((string)Get(lastSpring,"Name"))&&!springAction.Visible,
+     "Spring Setup waits for all four full assemblies in the current configuration");
+    Set(lastSpring,"Configuration","Default");
+    Call(editor,"Save");Call(editor,"RefreshLists");Application.DoEvents();
+    var springButtonBounds=componentDetails.SelectedTab.RectangleToClient(springAction.RectangleToScreen(springAction.ClientRectangle));
+    Check(springProgress.Text.Contains("4 of 4")&&springAction.Visible&&springButtonBounds.Left>=0&&
+     springButtonBounds.Right<componentDetails.SelectedTab.ClientSize.Width&&springButtonBounds.Bottom<=componentDetails.SelectedTab.ClientSize.Height,
+     "final saved spring assembly reveals an action that fits the narrow dock");
+    var inspection=Find(workspace,"AssignmentInspection");
+    Check(inspection.Visible&&inspection.Height>=inspection.PreferredSize.Height&&componentDetails.SelectedTab.Contains(inspection),
+     "narrow CAD assignment retains the saved geometry inspection controls");
+    springAction.PerformClick();Application.DoEvents();
+    var setupAssembly=Find(workspace,"SpringSetupAssembly");
+    Check(componentDetails.SelectedTab.Text=="Spring Setup"&&ReferenceEquals(components.SelectedItem,lastSpring)&&setupAssembly.Text.Contains((string)Get(lastSpring,"Name")),
+     "Open Spring Setup keeps the selected assembly");
+    var springPieces=Find(workspace,"CoiloverPieces");
+    var pieceBounds=componentDetails.SelectedTab.RectangleToClient(springPieces.RectangleToScreen(springPieces.ClientRectangle));
+    Check(components.ClientSize.Height>=components.ItemHeight&&pieceBounds.Right<=componentDetails.SelectedTab.ClientSize.Width,
+     "the narrow dock keeps the component list usable and spring piece slots fit horizontally");
+    components.SelectedItem=springGroups[0];Application.DoEvents();
+    Check(componentDetails.SelectedTab.Text=="Spring Setup"&&setupAssembly.Text.Contains((string)Get(springGroups[0],"Name")),
+     "switching spring groups keeps Spring Setup open");
     Check((bool)Call(workspace,"Navigate","Frame")&&ReferenceEquals(Get(workspace,"frame"),frame)&&((string)Prop(frame,"PreviewStatus")).StartsWith("Proxy"),"returning to Frame retains a current proxy");
     foreach(var group in groups){Set(group,"Configuration","Default");Set(group,"CadSourceDocument",document);((IList)Get(group,"Selections")).Add(New(code,"Preparation.SelectionReference"));}
     groups.Add(New(code,"Preparation.ComponentDefinition")); // Unassigned optional group.

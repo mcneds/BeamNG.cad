@@ -121,7 +121,7 @@ remains free. You do not need to draw BeamNG nodes manually.
    The searchable list combines required hardpoints, mate proposals and mounts.
 2. A group containing independently moving bodies must be split first. Select
    the group, open **Components → CAD assignment → Moving pieces / split for
-   mates** (also available on **Coilover**), and classify every physical body
+   mates** (also available in **Spring Setup** for spring and damper groups), and classify every physical body
    exactly once using the moving-piece dropdown. Clicking a row highlights its
    body in the assembly without moving the camera; Ctrl/Shift selects several.
    Choose a piece and **Assign to selected bodies** to classify them together.

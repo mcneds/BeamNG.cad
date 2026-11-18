@@ -35,6 +35,9 @@ namespace BeamNG.Cad.UI
         private readonly TemplateImportPanel templateImport=new TemplateImportPanel();
         private readonly AssignmentInspectionPanel assignmentInspection=new AssignmentInspectionPanel();
         private readonly CoiloverPanel coiloverPanel=new CoiloverPanel();
+        private readonly Label springCadProgress=new Label {Name="SpringCadProgress",AutoSize=true};
+        private readonly Button openSpringSetup=new Button {Name="OpenSpringSetup",Text="Open Spring Setup",AutoSize=true,Padding=new Padding(8,4,8,4)};
+        private readonly Control springCadSection;
         private readonly FrameAssignmentPanel frameAssignment=new FrameAssignmentPanel();
         private readonly CompanionAssemblyPanel companionPanel=new CompanionAssemblyPanel();
         private readonly Button assignSelection=new Button {Name="AssignCurrentSelection",Text="Set to selected",AutoSize=true};
@@ -143,17 +146,15 @@ namespace BeamNG.Cad.UI
             search.Controls.Add(new Label {AutoSize=true,Text="Find component (name or role)"});search.Controls.Add(componentSearch);search.Controls.Add(componentCount);
             groupColumn.Controls.Add(assignmentInspection,0,0);groupColumn.Controls.Add(search,0,1);groupColumn.Controls.Add(components,0,2);
             partLayout.Controls.Add(groupColumn,0,0);partLayout.Controls.Add(details,1,0);partPage.Controls.Add(partLayout);
-            partLayout.Resize+=(s,e)=>
-            {
-                var narrow=partLayout.ClientSize.Width<760;
-                var browserHeight=Math.Min(480,Math.Max(320,partLayout.ClientSize.Height-180));
-                ResponsiveLayout.Split(partLayout,groupColumn,details,narrow,browserHeight);
-                if(narrow)partLayout.RowStyles[0].Height=browserHeight;
-            };
 
             assignmentInspection.ShowRequested+=()=>Run(ShowAssignedGeometry);
             components.DoubleClick+=(s,e)=>assignmentInspection.ShowCurrent();
             var assignment=DetailPage(details,"CAD assignment");
+            var springCad=Section(assignment,"Spring assembly CAD","Save the full CAD group for each spring and damper assembly. Include the housing, shaft, spring and associated hardware.");
+            springCad.Controls.Add(springCadProgress);
+            springCad.Controls.Add(openSpringSetup);
+            springCadSection=springCad.Parent;
+            springCadSection.Visible=false;
             var partButtons=Section(assignment,"Assign a physical group","Select a group row and pick CAD bodies or instances. Set to selected replaces its saved geometry; Add to group keeps it and adds your selection. New tagged group saves an empty row. The frame uses the saved definition shown below. Assignments reload after restarting SolidWorks.");
             Button(partButtons,"Moving pieces / split for mates",()=>Run(EditMovingMembers));
             Labeled(partButtons,"Role",mvpRole);Labeled(partButtons,"Name",componentName);
@@ -167,15 +168,34 @@ namespace BeamNG.Cad.UI
             var ownership=Section(assignment,"Selected group","Faces select their owning body. For the frame, save the frame selection in the frame workflow before using Use saved frame.");
 
             Button(ownership,"Remove component",()=>Run(()=>{RemoveComponent();return Task.CompletedTask;}));
+            var narrowInspection=new Panel {AutoSize=true,Dock=DockStyle.Top,Visible=false};
+            assignment.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            assignment.Controls.Add(narrowInspection,0,assignment.RowCount++);
+            partLayout.Resize+=(s,e)=>
+            {
+                var narrow=partLayout.ClientSize.Width<760;
+                var browserHeight=Math.Min(320,partLayout.ClientSize.Height*2/5);
+                ResponsiveLayout.Split(partLayout,groupColumn,details,narrow,browserHeight);
+                if(narrow)
+                {
+                    partLayout.RowStyles[0].Height=browserHeight;
+                    if(assignmentInspection.Parent!=narrowInspection)narrowInspection.Controls.Add(assignmentInspection);
+                }
+                else if(assignmentInspection.Parent!=groupColumn)groupColumn.Controls.Add(assignmentInspection,0,0);
+                narrowInspection.Visible=narrow;
+            };
             var appearance=Section(DetailPage(details,"Appearance"),"Assign the visible mesh","Generation uses the physical CAD by default. A separate appearance assignment overrides its visible mesh. Pending means the saved appearance still needs packaging; it does not change physical mass or ownership.");
             Button(appearance,"Save visual assignment",()=>Run(ReplaceAppearance));
             Button(appearance,"Package saved appearances",()=>Run(PackageAppearances));
             Button(appearance,"Align appearance",()=>Run(AlignAppearance));
-            var coiloverPage=DetailPage(details,"Coilover");coiloverPage.Controls.Add(coiloverPanel);
-            var movingPieces=new FlowLayoutPanel {Dock=DockStyle.Top,AutoSize=true};
-            Button(movingPieces,"Moving pieces / split for mates",()=>Run(EditMovingMembers));coiloverPage.Controls.Add(movingPieces);
-            coiloverPanel.AssignRequested+=()=>Run(()=>{var c=Required();var captured=selection.Capture();var ids=selection.BodyIds(captured);CoiloverAppearance.Assign(c,coiloverPanel.Kind,captured,ids,selection.Document);Save();RefreshLists();status.Text="Coilover piece saved: "+captured.CaptureSummary(ids.Count)+". Complete the three slots, then Package saved appearances.";return Task.CompletedTask;});
-            coiloverPanel.ShowRequested+=()=>Run(()=>{var piece=Required().AppearanceCoilover?.Pieces.FirstOrDefault(p=>p.Kind==coiloverPanel.Kind)??throw new InvalidOperationException("Assign this coilover piece first.");if(!ComponentAssignments.SameDocument(piece.SourceDocument,selection.Document))throw new InvalidOperationException("Activate the assembly containing this piece.");selection.Show(CoiloverAppearance.Assignment(piece));model.ViewZoomToSelection();return Task.CompletedTask;});
+            var springSetup=DetailPage(details,"Spring Setup");
+            springSetup.Controls.Add(coiloverPanel);
+            var springSetupTab=(TabPage)springSetup.Parent;
+            springSetupTab.SizeChanged+=(s,e)=>coiloverPanel.FitWidth(springSetupTab.ClientSize.Width-SystemInformation.VerticalScrollBarWidth);
+            openSpringSetup.Click+=(s,e)=>{UpdateSpringCadGuidance();if(openSpringSetup.Visible)details.SelectedTab=springSetupTab;};
+            coiloverPanel.SplitRequested+=()=>Run(EditMovingMembers);
+            coiloverPanel.AssignRequested+=()=>Run(()=>{var c=Required();var captured=selection.Capture();var ids=selection.BodyIds(captured);CoiloverAppearance.Assign(c,coiloverPanel.Kind,captured,ids,selection.Document);Save();RefreshLists();status.Text="Spring assembly piece saved: "+captured.CaptureSummary(ids.Count)+". Complete the three slots, then Package saved appearances.";return Task.CompletedTask;});
+            coiloverPanel.ShowRequested+=()=>Run(()=>{var piece=Required().AppearanceCoilover?.Pieces.FirstOrDefault(p=>p.Kind==coiloverPanel.Kind)??throw new InvalidOperationException("Assign this spring assembly piece first.");if(!ComponentAssignments.SameDocument(piece.SourceDocument,selection.Document))throw new InvalidOperationException("Activate the assembly containing this piece.");selection.Show(CoiloverAppearance.Assignment(piece));model.ViewZoomToSelection();return Task.CompletedTask;});
             coiloverPanel.ClearRequested+=()=>Run(()=>{var c=Required();c.AppearanceCoilover?.Pieces.RemoveAll(p=>p.Kind==coiloverPanel.Kind);CoiloverAppearance.Pending(c);Save();RefreshLists();return Task.CompletedTask;});
             coiloverPanel.MountChanged+=()=>Run(()=>{var c=Required();c.AppearanceCoilover=c.AppearanceCoilover??new CoiloverAppearance();c.AppearanceCoilover.HousingMount=coiloverPanel.HousingMount;CoiloverAppearance.Pending(c);Save();RefreshLists();return Task.CompletedTask;});
 
@@ -390,6 +410,7 @@ namespace BeamNG.Cad.UI
                 (Selected==null || ComponentAssignments.State(project,Selected,false)!="saved");
             assignmentInspection.SetComponent(Selected);
             coiloverPanel.SetComponent(Selected);
+            UpdateSpringCadGuidance();
             var c=Selected;draftOwner=c;foreach(var action in componentActions)action.Enabled=c!=null;if(c==null)return;componentName.Text=c.Name;componentName.Modified=false;template.SelectedItem=c.Template;method.SelectedItem=c.Method;
             RefreshRoles(c);
             spacing.Value=Clamp(spacing,c.Spacing*1000);alpha.Value=Clamp(alpha,c.Alpha*1000);wrapOffset.Value=Clamp(wrapOffset,c.WrapOffset*1000);
@@ -400,6 +421,32 @@ namespace BeamNG.Cad.UI
             flipAutoNormal.Checked=c.AutoConnectNormalFlip;
             if(cancel==null && previews.Count>0)Run(async()=>{foreach(var item in previews)await item.Value.SetVisibleAsync(visible.Checked&&item.Key==c.Id);});
             } finally {loadingDraft=false;draftBaseline=DraftKey();UpdateDraftState();}
+        }
+        private void UpdateSpringCadGuidance()
+        {
+            var imported=!string.IsNullOrEmpty(project.PhysicsTemplateReceipt)&&project.JointWorkspace.Mode!="authored";
+            var show=CoiloverAppearance.Supported(Selected)&&!imported;
+            if(!show)
+            {
+                springCadSection.Visible=false;
+                return;
+            }
+
+            var roles=mvpCatalog.ActiveRoles(project).Where(r=>r.Required&&r.Id.EndsWith("_spring_damper",StringComparison.Ordinal)).ToArray();
+            var configuration=selection.Configuration;
+            var missing=new List<string>();
+            foreach(var role in roles)
+            {
+                var owners=project.Components.Where(c=>c.MvpRole==role.Id).Take(2).ToArray();
+                if(owners.Length!=1||owners[0].Representation=="visual_only"||
+                    owners[0].Configuration!=configuration||ComponentAssignments.State(project,owners[0],false)!="saved")
+                    missing.Add(role.Label);
+            }
+
+            springCadSection.Visible=roles.Length>0;
+            openSpringSetup.Visible=roles.Length>0&&missing.Count==0;
+            springCadProgress.Text=(roles.Length-missing.Count)+" of "+roles.Length+" spring assemblies saved. "+
+                (missing.Count==0?"Set up each assembly next.":"Still needed: "+string.Join(", ",missing)+".");
         }
         private void RefreshRoles(ComponentDefinition component)
         {
@@ -619,7 +666,7 @@ namespace BeamNG.Cad.UI
         private Task ReplaceAppearance()
         {
             var component=Required();
-            if(CoiloverAppearance.Active(component))throw new InvalidOperationException("This coilover uses separate moving pieces. Use the Coilover tab to update housing, shaft or spring. Clear all three slots there to return to a combined visual assignment.");
+            if(CoiloverAppearance.Active(component))throw new InvalidOperationException("This spring assembly uses separate moving pieces. Open Spring Setup to update the housing, shaft or spring. Clear all three slots there to return to a combined visual assignment.");
             if(project.Driveline?.Shafts.Any(s=>s.Component==component.Id&&!string.IsNullOrEmpty(s.Member))==true)throw new InvalidOperationException("This shaft uses independently moving members. Keep their physical CAD meshes, or use separate section groups for independent appearance replacement.");
             var assignment=selection.Capture();
             ComponentAssignments.Appearance(component,assignment,selection.Document);Save();RefreshLists();components.SelectedItem=component;assignmentInspection.Appearance=true;

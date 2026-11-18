@@ -6,9 +6,10 @@ sidebar:
 ---
 
 To locate a group you already assigned, open **Components**,
-select its row, and click **Show in SolidWorks** above the list. Double-clicking
+select its row, and click **Show in SolidWorks**. Look above the list in a wide
+dock or near the bottom of **CAD assignment** in a narrow dock. Double-clicking
 the row performs the same action. **Zoom to group** frames the highlighted
-selection; uncheck it to keep your current view.
+selection. Uncheck it to keep your current view.
 
 The source defaults to **Appearance CAD** when the group has a saved appearance
 assignment. This is the selection from **Save visual assignment** (formerly

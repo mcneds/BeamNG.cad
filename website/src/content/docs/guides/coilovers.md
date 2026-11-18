@@ -1,14 +1,20 @@
 ---
-title: "Coilovers and spring settings"
+title: "Spring setup"
 description: "Assign telescoping shock meshes and configure optional two-stage spring laws."
 sidebar:
   order: 6
 ---
 
-Select a `*_spring_damper` group in **Components**, then open **Coilover**.
-Assign the housing (including its eye and spring seat), shaft (including its eye
-and seat), and coil spring into the three slots. Each slot accepts multiple
-bodies, shows its saved body count, and can highlight its selection in SolidWorks.
+In **Components → CAD assignment**, save one full CAD group for each required
+spring and damper assembly. Include the housing, shaft, spring, mounting eyes,
+seats, and associated hardware. When every required assembly is saved for the
+current configuration, click **Open Spring Setup**. Select each spring and
+damper group in the Components list to set them up in turn.
+
+For telescoping visuals, assign the housing (including its eye and spring seat),
+shaft (including its eye and seat), and coil spring into the three appearance
+slots. Each slot accepts multiple bodies, shows its saved body count, and can
+highlight its selection in SolidWorks.
 Choose whether the housing attaches to the chassis/top mount or suspension/bottom
 mount. Complete all slots, then use **Package saved appearances** on Appearance
 or Build. The split also applies when regenerating full-vehicle physics.
@@ -39,7 +45,7 @@ physical snapshot. These checks cover motion and rendering, not real shock ratin
 
 ## Optional two-stage springs
 
-In the same **Coilover** tab, choose **Two-stage springs with crossover** for each
+Under **Spring physics** in **Spring Setup**, choose **Two-stage springs with crossover** for each
 corner that needs it. Enter the main and tender spring rates in N/mm and the shock
 compression, in mm from the CAD ride position, where the crossover engages. Click
 **Apply component changes**, then **Regenerate physics / package**. Appearance-only
@@ -62,7 +68,7 @@ spring lockup and crossover-collar animation are not implemented. Housing and sh
 still telescope as rigid pieces. The settings describe spring force versus travel;
 they do not infer rates, preload or crossover position from coil geometry.
 
-![Coilover assignment and optional two-stage controls](/assets/coilover-controls.png)
+![Earlier Coilover tab showing appearance assignments and two-stage controls](/assets/coilover-controls.png)
 
 The native scalar fixture measured 2,000.7 N/m before crossover and 6,007.6 N/m
 after, against targets of 2,000 and 6,000 N/m. All four recordings passed the
