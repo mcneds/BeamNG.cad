@@ -48,6 +48,15 @@ public static class FrameDocumentContextTest {
    using(var host=new Form {Width=340,Height=850,StartPosition=FormStartPosition.Manual,Location=new System.Drawing.Point(-20000,-20000)})
    using(var workspace=(Control)New(code,"UI.ProjectWorkspace",app,settings)){
     host.Controls.Add(workspace);Call(workspace,"SelectProject",project,model);host.Show();
+    var navigation=(FlowLayoutPanel)Get(workspace,"navigation");
+    var drivelineButton=navigation.Controls.OfType<Button>().Single(b=>b.Text=="Driveline");
+    drivelineButton.PerformClick();Application.DoEvents();
+    var routes=Find(workspace,"DrivelineRoutes");
+    Check((string)Prop(workspace,"CurrentStage")=="Driveline"&&routes.Visible&&
+          !Find(workspace,"MvpTemplate_drivetrain").Visible,"first Driveline click displays Routes instead of the vehicle layout");
+    Call(workspace,"Navigate","Joints");
+    drivelineButton.PerformClick();Application.DoEvents();
+    Check(routes.Visible,"returning to Driveline displays Routes again");
     Check((bool)Call(workspace,"Navigate","Frame"),"fresh vehicle opens the docked frame editor");
     var frame=Get(workspace,"frame");var preview=Get(frame,"previewWindow");Set(preview,"ForceCpuPreview",true);
     Set(preview,"source",new System.Windows.Media.Media3D.Point3D[0]);Set(frame,"previewStamp",(int?)0);

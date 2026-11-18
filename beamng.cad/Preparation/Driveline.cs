@@ -75,6 +75,12 @@ namespace BeamNG.Cad.Preparation
                         if(!project.Anchors.Any(a=>a.Id==id&&a.ComponentId==owner.Id&&a.Status=="resolved"))yield return endpoint.Name+": repair captured datum";
                 }else if(required>0 && endpoint.Position?.Length!=3 || required==2 && endpoint.Axis?.Length!=3)yield return endpoint.Name+": complete the required datum";
             }
+            foreach(var shaft in Shafts.Where(s=>s.Representation=="ideal"))
+            {
+                var owner=project.Components.FirstOrDefault(c=>c.Id==shaft.Component);
+                if(owner==null)yield return shaft.Name+": missing CAD owner";
+                else if(ComponentAssignments.State(project,owner,false)!="saved")yield return shaft.Name+": assign this assembly's physical CAD";
+            }
             if(Devices.Count(d=>d.Type=="engine")!=1||Devices.Count(d=>d.Type=="cvt")!=1)yield return "Declare one engine and one controlled CVT";
             if(!Devices.Any(d=>d.Type=="wheel"))yield return "Connect at least one wheel hub";
         }

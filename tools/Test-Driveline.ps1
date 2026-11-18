@@ -60,6 +60,52 @@ public static class DrivelineTest {
   Check(((IList)Get(direct,"Shafts")).Count==0 && ((IList)Get(direct,"Connections")).Count==1 && ((IList)Get(direct,"Endpoints")).Count==2,"changing an ideal shaft to direct preserves both port datums and removes the shaft");
 
  }
+ static void PreAuditTemplate(Assembly code,Control panel,object project){
+  var components=(IList)Get(project,"Components");components.Clear();
+  foreach(var role in new[]{"engine","cvt","rear_final_drive","front_propshaft","front_propshaft","front_diff",
+   "rr_halfshaft","rl_halfshaft","fl_halfshaft","fr_halfshaft","rr_wheel","rl_wheel","fl_wheel","fr_wheel"}){
+   var group=New(code,"Preparation.ComponentDefinition");
+   Set(group,"Id","test_"+components.Count);Set(group,"Name","CAD "+components.Count);Set(group,"MvpRole",role);
+   components.Add(group);
+  }
+  var settings=(IDictionary)Get(Get(project,"JointWorkspace"),"Parameters");
+  settings["rear_reduction"]=8.0;settings["front_output_ratio"]=.125;settings["front_reduction"]=8.0;
+  Call(panel,"Configure",project,true);
+  var original=Get(project,"Driveline");
+  var template=panel.Controls.OfType<FlowLayoutPanel>().SelectMany(p=>p.Controls.OfType<Button>())
+   .Single(b=>b.Text=="Pre-audit 4WD template");
+  using(var timer=new Timer {Interval=60}){
+   bool chosen=false;
+   timer.Tick+=(s,e)=>{
+    var dialog=Application.OpenForms.Cast<Form>().FirstOrDefault(f=>f.Text==template.Text);
+    if(dialog==null)return;
+    timer.Stop();
+    var rear=(ComboBox)dialog.Controls.Find("PreAuditOwner_rear_section",true).Single();
+    var front=(ComboBox)dialog.Controls.Find("PreAuditOwner_front_section",true).Single();
+    chosen=rear.SelectedIndex==0 && front.SelectedIndex==0;
+    rear.SelectedIndex=5;front.SelectedIndex=4; // Deliberately reverse assembly list order.
+    dialog.DialogResult=DialogResult.OK;dialog.Close();
+   };
+   timer.Start();template.PerformClick();
+   Check(chosen,"the two propshafts require explicit ordering despite matching roles");
+  }
+  var draft=Get(panel,"Draft");
+  Check((bool)Get(panel,"HasChanges") && ReferenceEquals(original,Get(project,"Driveline")),"the template opens as a draft and preserves the saved graph");
+  var routes=(ListBox)panel.Controls.Find("DrivelineRoutes",true)[0];
+  var labels=routes.Items.Cast<object>().Select(r=>r.ToString()).ToArray();
+  Check(labels[0].Contains("Engine") && labels[0].Contains("CVT") && labels[1].Contains("Rear gearbox"),"the template routes the engine through the CVT to the rear gearbox");
+  var frontRoute=labels.Single(l=>l.Contains("Rear propshaft section (detailed), Front propshaft section (detailed)"));
+  Check(frontRoute.Contains("Gearbox front output") && frontRoute.Contains("Front differential"),"both propshaft sections form one ordered route from the gearbox to the front differential");
+  foreach(var corner in new[]{"RR","RL","FL","FR"}){
+   var route=labels.Single(l=>l.Contains(corner+" halfshaft (ideal)"));
+   Check(route.Contains(corner+" wheel hub") && route.Contains(corner[0]=='R'?"Gearbox rear differential":"Front differential"),corner+" halfshaft connects the corresponding differential and wheel hub");
+  }
+  var shafts=((IList)Get(draft,"Shafts")).Cast<object>().ToArray();
+  Check(shafts.Length==6 && (string)Get(shafts[0],"Component")=="test_4" && (string)Get(shafts[1],"Component")=="test_3","explicit propshaft owners follow vehicle order");
+  var endpoints=((IList)Get(draft,"Endpoints")).Cast<object>();
+  Check(endpoints.All(e=>Get(e,"Component")!=null && Get(e,"Position")==null),"owner picks populate all physical groups without inventing datums");
+  Set(project,"Driveline",Call(draft,"Copy"));Call(project,"Save");
+ }
  public static void Run(string dll,string folder){
   var code=Assembly.LoadFrom(dll);var projectType=code.GetType("BeamNG.Cad.Preparation.VehicleProject");
   var document=Path.Combine(folder,"fixture.SLDASM");File.WriteAllText(document,"Persistence fixture only; never opened in CAD");
@@ -81,7 +127,8 @@ public static class DrivelineTest {
    foreach(var size in new[]{new System.Drawing.Size(900,800),new System.Drawing.Size(560,750)}){window.Size=size;Application.DoEvents();Check(panel.Controls.Find("DrivelineEndpoints",true).Length==1,"native endpoint list is available at "+size.Width+" px");}
    var draft=Call(saved,"Copy");Call(panel,"Adopt",draft);Check((bool)Get(panel,"HasChanges"),"adopting a preset creates an unsaved graph draft");
    Check((string)Get(((IList)Get(Get(restored,"Driveline"),"Endpoints"))[0],"Name")=="Custom output","editing UI drafts preserves saved graph data");
-   Call(panel,"Configure",restored,true);Check(!(bool)Get(panel,"HasChanges"),"discard restores the saved graph");RouteWorkflow(code,panel,restored);window.Close();
+   Call(panel,"Configure",restored,true);Check(!(bool)Get(panel,"HasChanges"),"discard restores the saved graph");RouteWorkflow(code,panel,restored);
+   PreAuditTemplate(code,panel,restored);window.Close();
   }
   var unchanged=projectType.GetMethod("Load").Invoke(null,new[]{path});Check((int)Get(unchanged,"Version")==4,"loading graph work does not downgrade its project version");
  }

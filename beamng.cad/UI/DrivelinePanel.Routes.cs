@@ -60,10 +60,14 @@ namespace BeamNG.Cad.UI
                         else{var shaft=shafts[0];route.Shafts.Add(shaft);current=shaft.A==current?shaft.B:shaft.A;}
                     }
                     if(route.Target==null)continue;
+                    var unassigned=route.Shafts.FirstOrDefault(s=>string.IsNullOrEmpty(s.Component));
+                    if(unassigned!=null)route.Issue="Assign CAD group for "+unassigned.Name;
                     foreach(var id in seen)
                     {
+                        if(route.Issue!=null)break;
                         var endpoint=graph.Endpoints.FirstOrDefault(e=>e.Id==id);
                         if(endpoint==null)continue;
+                        if(string.IsNullOrEmpty(endpoint.Component)){route.Issue="Assign CAD owner for "+endpoint.Name;break;}
                         requirements.TryGetValue(id,out var required);
                         bool centre=endpoint.Joint!=null || endpoint.Anchor!=null || endpoint.Position?.Length==3;
                         bool axis=endpoint.Joint!=null || endpoint.AxisAnchor!=null || endpoint.Axis?.Length==3;
@@ -218,7 +222,7 @@ namespace BeamNG.Cad.UI
                     var item=imported?next.Shafts.First(s=>s.Id==shaft.Id):new DriveShaft();
                     if(shaft!=null){item.Id=shaft.Id;item.LegacyPlunge=shaft.LegacyPlunge;}
                     if(!imported){item.A=a;item.B=b;}
-                    item.Component=component;item.Name=project.Components.First(c=>c.Id==component).Name;
+                    item.Component=component;item.Name=shaft?.Name??project.Components.First(c=>c.Id==component).Name;
                     item.Representation="ideal";item.HalfTravel=halfTravel;
                     if(!imported)next.Shafts.Add(item);
                     next.Version=2;

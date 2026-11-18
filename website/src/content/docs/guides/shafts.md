@@ -11,6 +11,20 @@ Open **Routes** in the **Driveline** workspace to follow torque from the engine 
 to its destination. **New empty graph** starts a layout. **Convert current
 layout** opens a draft with the existing ratios, CAD references, and shaft travel.
 
+**Pre-audit 4WD template** starts an editable draft for an engine feeding a CVT
+and rear gearbox. The gearbox drives the RR and RL hubs through their own
+halfshafts. Its geared front output feeds the rear propshaft section, then the
+front propshaft section, then the front differential and its FL and FR halfshafts.
+The gearbox's reduction, takeoff and differential appear as devices within the
+same CAD housing.
+
+Choose the two propshaft owners in vehicle order in the template dialog. Unique
+component roles prefill the other owners. You can assign blank owners later in
+**Devices**, **Detailed shafts**, or **Edit route** for a wheel halfshaft. The
+template carries over any saved CVT range and final-drive ratios. Review gearing,
+joint datums, any carrier support, and measured plunge before generation.
+**Apply driveline changes** saves the draft.
+
 1. Assign the physical groups in **Components**. In **Devices**, add the engine,
    clutch, CVT, reductions, differentials or splitters, and driven wheel hubs.
    The controller supports one engine and one CVT. Use **Device settings** to

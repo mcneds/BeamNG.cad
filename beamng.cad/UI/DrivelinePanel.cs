@@ -34,6 +34,7 @@ namespace BeamNG.Cad.UI
             var toolbar=new FlowLayoutPanel {Dock=DockStyle.Top,AutoSize=true,WrapContents=true};
             Add(toolbar,"New empty graph",()=>{draft=new Driveline {Version=2};Changed();});
             Add(toolbar,"Convert current layout",()=>PresetRequested?.Invoke());
+            Add(toolbar,"Pre-audit 4WD template",UsePreAuditTemplate);
             Add(toolbar,"Import reviewed graph",()=>{using(var dialog=new OpenFileDialog {Filter="Graph or reviewed definition (*.json)|*.json"})if(dialog.ShowDialog(this)==DialogResult.OK){var json=new System.Web.Script.Serialization.JavaScriptSerializer();var root=json.DeserializeObject(System.IO.File.ReadAllText(dialog.FileName)) as Dictionary<string,object>;if(root==null)throw new InvalidOperationException("Expected a graph or reviewed definition object.");Adopt(Driveline.FromJson(json.Serialize(root.ContainsKey("driveline")?root["driveline"]:root)));}});
             CreateRoutesTab();
             foreach(var title in new[]{"Devices","Endpoints","Shafts","Connections"})
@@ -71,6 +72,33 @@ namespace BeamNG.Cad.UI
             project=value;draft=value?.Driveline?.Copy();dirty=false;RefreshLists();
         }
         internal void Adopt(Driveline value){draft=value;draft.Normalize();Changed();}
+        private void UsePreAuditTemplate()
+        {
+            if(project==null)throw new InvalidOperationException("Open a vehicle project first.");
+            using(var form=new Fields("Pre-audit 4WD template") {Height=550})
+            {
+                var groups=project.Components.Where(c=>c.Representation!="visual_only" && c.MvpRole!="frame" && c.Template!="calibrated_frame").ToList();
+                var choices=new[]{new Choice {Name="Assign later"}}.Concat(groups.Select(c=>new Choice {Id=c.Id,Name=c.Name})).ToList();
+                var pickers=new Dictionary<string,ComboBox>();
+                foreach(var slot in DrivelineTemplates.PreAuditOwners())
+                {
+                    // The two propshaft sections share a role. Their order must come from the builder.
+                    var matches=groups.Where(c=>c.MvpRole==slot.Role).Take(2).ToList();
+                    var suggested=slot.Role!="front_propshaft" && matches.Count==1?matches[0].Id:null;
+                    var picker=form.Pick(slot.Label,choices,suggested);
+                    picker.Name="PreAuditOwner_"+slot.Key;
+                    pickers.Add(slot.Key,picker);
+                }
+                if(form.ShowDialog(this)!=DialogResult.OK)return;
+                var next=DrivelineTemplates.CreatePreAuditFourWheelDrive(pickers.ToDictionary(p=>p.Key,p=>Id(p.Value)),project.JointWorkspace.Parameters);
+                var shaftOwners=next.Shafts.Where(s=>s.Component!=null).Select(s=>s.Component).ToList();
+                if(shaftOwners.Distinct().Count()!=shaftOwners.Count || next.Devices.Any(d=>shaftOwners.Contains(d.Component)))
+                    throw new InvalidOperationException("Choose a separate CAD group for each shaft section and halfshaft.");
+                if(!ResolveChanges())return;
+                Adopt(next);
+                SelectRecord("Routes",null);
+            }
+        }
         private void Changed(){dirty=true;RefreshLists();}
         private void RefreshLists()
         {
@@ -143,7 +171,12 @@ namespace BeamNG.Cad.UI
                     var d=item as DriveDevice??new DriveDevice();var type=form.Pick("Behavior",Options(Driveline.DeviceTypes),d.Type);var owner=form.Pick("Housing / wheel",Owners(),d.Component);var wheel=form.Pick("Wheel hub",Options("FL","FR","RL","RR"),d.Wheel);
                     if(form.ShowDialog(this)!=DialogResult.OK)return;
                     var selected=Id(type);if(selected==null||Id(owner)==null)throw new InvalidOperationException("Choose behavior and a physical owner.");
-                    if(!add&&d.Ports.Count>0&&(d.Type!=selected||d.Component!=Id(owner)))throw new InvalidOperationException("Remove this device's ports before changing its behavior or owner. Existing connections are preserved for explicit repair.");
+                    if(!add&&d.Ports.Count>0&&(d.Type!=selected||d.Component!=null&&d.Component!=Id(owner)))throw new InvalidOperationException("Remove this device's ports before changing its behavior or owner. Existing connections are preserved for explicit repair.");
+                    if(d.Component==null)
+                    {
+                        var ports=new HashSet<string>(d.Ports.Select(p=>p.Endpoint));
+                        foreach(var end in draft.Endpoints.Where(e=>e.Component==null&&ports.Contains(e.Id)))end.Component=Id(owner);
+                    }
                     d.Name=name.Text.Trim();d.Type=selected;d.Component=Id(owner);d.Wheel=d.Type=="wheel"?Id(wheel):null;
                     if(add)
                     {
@@ -168,7 +201,11 @@ namespace BeamNG.Cad.UI
                     }
                     else
                     {
-                        shaft=shaft??new DriveShaft {Representation="detailed"};shaft.Name=name.Text.Trim();shaft.Component=Id(owner);shaft.Member=Id(member);
+                        shaft=shaft??new DriveShaft {Representation="detailed"};
+                        if(!add && shaft.Component==null)
+                            foreach(var end in draft.Endpoints.Where(e=>e.Component==null&&(e.Id==Id(a)||e.Id==Id(b))))
+                            {end.Component=Id(owner);end.Member=Id(member);}
+                        shaft.Name=name.Text.Trim();shaft.Component=Id(owner);shaft.Member=Id(member);
                         if(add){var ea=new DriveEndpoint {Name=shaft.Name+" end A",Component=shaft.Component,Member=shaft.Member};var eb=new DriveEndpoint {Name=shaft.Name+" end B",Component=shaft.Component,Member=shaft.Member};draft.Endpoints.Add(ea);draft.Endpoints.Add(eb);shaft.A=ea.Id;shaft.B=eb.Id;draft.Shafts.Add(shaft);}
                         else{shaft.A=Id(a);shaft.B=Id(b);}
                     }

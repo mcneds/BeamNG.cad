@@ -47,6 +47,10 @@ namespace BeamNG.Cad
             [CommandItemInfo(true,true,WorkspaceTypes_e.Assembly,true)]
             Joints = 23,
             [Icon(typeof(CommandIcons), nameof(CommandIcons.Export))]
+            [Title("Driveline")]
+            [CommandItemInfo(true,true,WorkspaceTypes_e.Assembly,true)]
+            Driveline = 28,
+            [Icon(typeof(CommandIcons), nameof(CommandIcons.Export))]
             [Title("Frame")]
             [CommandItemInfo(true,true,WorkspaceTypes_e.Assembly,true)]
             Frame = 24,

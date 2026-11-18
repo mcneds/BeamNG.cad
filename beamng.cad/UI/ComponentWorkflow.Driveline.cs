@@ -20,7 +20,10 @@ namespace BeamNG.Cad.UI
         }
         private void InitializeDriveline(TabControl tabs)
         {
-            var page=new TabPage("Driveline");page.Controls.Add(drivelinePanel);tabs.TabPages.Insert(3,page);
+            var page=new TabPage("Driveline");
+            page.Controls.Add(drivelinePanel);
+            // Add pages in display order so WinForms can select them before docking creates the handle.
+            tabs.TabPages.Add(page);
             drivelinePanel.ApplyRequested+=value=>{project.Driveline=value;if(string.IsNullOrWhiteSpace(project.TemplateDefinitionPath))project.JointWorkspace.Mode="authored";Save();RefreshLists();};
             drivelinePanel.PresetRequested+=()=>Run(async()=>
             {

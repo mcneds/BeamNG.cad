@@ -242,6 +242,7 @@ namespace BeamNG.Cad.UI
             jointsPanel.OwnerSelected+=id=>{var item=project.Components.FirstOrDefault(c=>c.Id==id);if(item!=null)components.SelectedItem=item;};
             jointsPanel.HighlightRequested+=id=>Run(()=>{HighlightJoint(id);return Task.CompletedTask;});
             jointsPanel.MembersRequested+=()=>Run(EditMovingMembers);
+            InitializeDriveline(tabs);
             var buildPage=new TabPage("Build");var buildStack=Sections();buildPage.AutoScroll=true;buildPage.Controls.Add(buildStack);tabs.TabPages.Add(buildPage);
             var refresh=Section(buildStack,"1. Export current CAD","For the first real-data pass, refresh the tagged groups and inspect the checklist. Fix missing roles, duplicate ownership and material inputs before building.");
             Button(refresh,"Refresh tagged CAD",()=>Run(RefreshTaggedCad));
@@ -253,7 +254,6 @@ namespace BeamNG.Cad.UI
             Button(verification,"Verify package",()=>Run(Verify));
             Button(verification,"Manage project mod",()=>Run(()=>{if(NavigationRequested!=null)NavigationRequested("Delivery");else new ModManager(settings.Reload(),null,VehicleProject.Load(project.FilePath)) {SolidWorksApplication=app}.Show(this);return Task.CompletedTask;}));
             var logPage=new TabPage("Log");logPage.Controls.Add(log);tabs.TabPages.Add(logPage);
-            InitializeDriveline(tabs);
             editor.Controls.Add(tabs);Controls.Add(editor);Controls.Add(progress);Controls.Add(status);Controls.Add(activeProject);
             status.Padding=new Padding(8);SizeChanged+=(s,e)=>status.MaximumSize=new System.Drawing.Size(Math.Max(200,ClientSize.Width-16),0);
             stop.Click+=(s,e)=>cancel?.Cancel();Controls.Add(stop);
